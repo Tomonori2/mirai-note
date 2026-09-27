@@ -231,6 +231,19 @@ body.sum{padding-bottom:0}
       <label class="f">配偶者が年金を受け取りはじめるとき、あなたは何歳？</label><div class="unit"><input type="number" inputmode="numeric" data-m="spouseAt" placeholder="例：68"><span>歳</span></div>
       <div class="sub">例：配偶者が3歳年下で65歳から受け取るなら、あなたは68歳。空なら、あなたと同じ年齢から始まる計算にします。</div>
     </div>
+    <div class="note" style="margin-top:12px" id="parentBox">
+      <div style="font-weight:700">👵 親のために出るお金（仕送り・介護の手伝い・帰省の交通費など）</div>
+      <div class="sub" style="margin-top:4px">退職のころは、親の介護が始まる時期と重なりがちです。<b>あなたの家計から</b>出す分だけを入れてください（親の年金や貯金でまかなう分は入れません）。空のままなら使いません。</div>
+      <label class="f">ひと月にいくら</label><div class="unit"><input type="number" inputmode="decimal" data-m="parentCost" placeholder="例：3"><span>万円/月</span></div>
+      <label class="f">何年くらい続きそうか</label><div class="unit"><input type="number" inputmode="decimal" data-m="parentYears" placeholder="例：5"><span>年</span></div>
+      <label class="f">始まるとき、あなたは何歳？（空なら退職の日から）</label><div class="unit"><input type="number" inputmode="numeric" data-m="parentAt" placeholder="例：63"><span>歳</span></div>
+      <div class="sub">退職より前の分は、いまの生活費に入っているものとして、退職後に重なる分だけを数えます。</div>
+      <div class="sub" id="parentNote" style="color:var(--main);font-weight:600"></div>
+      <details class="sub" style="margin-top:6px"><summary>目安が分からないときは？</summary>
+        介護にかかるお金は「月8〜9万円・5年前後」という調査があります（生命保険文化センター）。ただしこれは<b>親本人のお金もふくめた合計</b>です。まずは親の年金と貯金でどこまでまかなえるかを聞いてみて、足りない分だけをここに入れると現実に近くなります。<br>
+        困ったときの相談先は、親が住んでいる地域の<b>「地域包括支援センター」</b>（無料・市区町村の窓口）です。</details>
+      <div class="sub" style="margin-top:6px">毎日の「元気？」の確認は、無料の見守りアプリ <a href="https://tomonori2.github.io/mimamori-app/" target="_blank" rel="noopener">みまもり</a> でもできます（同じ作者です）。</div>
+    </div>
     <label class="f">物価の上がり方</label>
     <select data-m="infl">
       <option value="0">考えない</option><option value="1">年1%上がる</option><option value="2">年2%上がる</option>
@@ -447,7 +460,7 @@ body.sum{padding-bottom:0}
 </nav>
 
 <script>
-const VERSION = 'v3.6';
+const VERSION = 'v3.7';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -487,7 +500,7 @@ const DEFAULT_DAY =['起きる','体を動かす','好きなことに打ちこ�
 
 function blank(){
   return { v:1, retireDate:'', startDate:todayYmd(),
-    money:{job:'',birth:'',assets:'',income:'',living:'',pension:'',severance:'',otherIn:'',work:'',reserve:'',tax:'',oneTime:'',age:'',pensionAge:65,lifeAge:90,infl:0,spousePension:'',spouseAt:''},
+    money:{job:'',birth:'',assets:'',income:'',living:'',pension:'',severance:'',otherIn:'',work:'',reserve:'',tax:'',oneTime:'',age:'',pensionAge:65,lifeAge:90,infl:0,spousePension:'',spouseAt:'',parentCost:'',parentYears:'',parentAt:''},
     cmp:{date:'',income:'',severance:''},
     todos: DEFAULT_TODOS.map(([t,rel],i)=>({id:Date.now()+i, text:t, due:'', rel, done:false, doneAt:''})),
     // 「理想の1日」は番号つきで持つ（文を書き直しても記録が続くように）
@@ -541,6 +554,10 @@ function pensionMonthly(m){ return num(m.pension)*pensionFactor(m.pensionAge); }
 // 配偶者の年金：入っていれば、あなたが spouseAt 歳のときから足す（空なら、あなたと同じ年齢から）
 function spouseOn(m){ return num(m.spousePension)>0; }
 function spouseStart(m){ return num(m.spouseAt)>0 ? num(m.spouseAt) : clampPA(m.pensionAge); }
+// 親のために出るお金：月額と年数がそろっていれば、あなたが parentAt 歳のときから（空なら退職の日から）その年数だけ出す
+function parentOn(m){ return num(m.parentCost)>0 && num(m.parentYears)>0; }
+// 退職より前に始まる分は、いまの手取りでまかなう（生活費に入っている）として、退職後に重なる分だけを数える
+function parentStart(m){ return num(m.parentAt)>0 ? num(m.parentAt) : ageOf(m); }
 // いまの年齢（物価は「いま」から上がっていく前提なので、その起点）
 function yearsToRetire(){ return parseYmd(data.retireDate) ? Math.max(0, daysBetween(todayYmd(), data.retireDate)/365.25) : 0; }
 // 渡された数字から求める（画面の数字を見に行くと、比較用の数字とずれることがあるため）
@@ -572,6 +589,8 @@ function run(m, opt){
   const A0 = opt.A0!==undefined ? opt.A0 : num(m.assets)+lumpIn(m)+preSave(m, opt.living);
   const res=num(m.reserve), dt=1/12;
   const spOn=spouseOn(m), spPen=num(m.spousePension), spAt=spouseStart(m);
+  const paOn=parentOn(m), paCost=num(m.parentCost), paS=parentStart(m), paE=paS+num(m.parentYears);
+  let parent=0;
   let bridge=0, after=0, asset=A0, zero=null, under=res>0&&A0<res ? a : null;
   if(A0<0) zero=a;
   const pts=[[a,A0]]; let nextMark=Math.floor(a)+1;
@@ -583,21 +602,23 @@ function run(m, opt){
       const sp = (spOn && x+h/2>=spAt) ? spPen*grow : 0;   // 配偶者の年金（始まっていれば）
       const cost = isAfter ? Math.max(0, liv-pen*grow-sp)*12*h : Math.max(0, liv-work-sp)*12*h;
       if(isAfter) after+=cost; else bridge+=cost;
-      const prev=asset; asset-=cost; x+=h;
+      const mid=x+h/2, pa = (paOn && mid>=paS && mid<paE) ? paCost*Math.pow(1+g,t)*12*h : 0;  // 親の分（物価で上がる）
+      parent+=pa;
+      const prev=asset; asset-=cost+pa; x+=h;
       if(zero==null && prev>=0 && asset<0) zero = x-h + h*(prev/(prev-asset||1));
       if(under==null && res>0 && prev>=res && asset<res) under = x-h + h*((prev-res)/(prev-asset||1));
       if(x>=nextMark-1e-9 || x>=e-1e-9){ pts.push([x,asset]); nextMark=Math.floor(x+1e-9)+1; }
     }
   }
-  return {bridge, after, bridgeYears:pP-a, afterYears:L-pP, pts, end:asset, zero, under, L};
+  return {bridge, after, parent, bridgeYears:pP-a, afterYears:L-pP, pts, end:asset, zero, under, L};
 }
 function calc(m, livingOverride){
   const r=run(m, {living:livingOverride});
   const living = livingOverride!==undefined ? livingOverride : num(m.living);
   const bridgeMonthly = Math.max(0, living-num(m.work));  // 働いて得る分は生活費から引く（いまの値段で）
   const gapMonthly = Math.max(0, living-pensionMonthly(m)-(spouseOn(m)?num(m.spousePension):0));
-  const need = r.bridge + r.after + num(m.reserve) + num(m.tax) + num(m.oneTime) - num(m.severance) - num(m.otherIn) - preSave(m, livingOverride);
-  return {bridgeYears:r.bridgeYears, afterYears:r.afterYears, bridgeMonthly, bridge:r.bridge, gapMonthly, after:r.after, need, margin:num(m.assets)-need};
+  const need = r.bridge + r.after + r.parent + num(m.reserve) + num(m.tax) + num(m.oneTime) - num(m.severance) - num(m.otherIn) - preSave(m, livingOverride);
+  return {bridgeYears:r.bridgeYears, afterYears:r.afterYears, bridgeMonthly, bridge:r.bridge, gapMonthly, after:r.after, parent:r.parent, need, margin:num(m.assets)-need};
 }
 function man(n){ const r=Math.round(n); return (r<0?'−':'')+Math.abs(r).toLocaleString('ja-JP')+'万円'; }
 function missing(m){
@@ -623,6 +644,14 @@ function renderPenNote(){
   const t = p===65 ? '65歳が基準です。早めると1か月ごとに0.4%減り、遅らせると0.7%増えます。'
     : `${p}歳からだと、65歳より ${p<65?'':'+'}${((f-1)*100).toFixed(1)}%。`+(num(m.pension)>0?`上の年金はひと月 ${pensionMonthly(m).toFixed(1)}万円 として計算します。`:'');
   $('penNote').textContent = t + (num(m.pensionAge)&&num(m.pensionAge)!==p ? `（${p}歳として計算しています）` : '');
+}
+function renderParentNote(){
+  const m=data.money, el=$('parentNote');
+  if(!parentOn(m) || !moneyReady(m)){ el.textContent=''; return; }
+  const p=calc(m).parent, s=parentStart(m), e=s+num(m.parentYears), a=ageOf(m);
+  el.textContent = p>0
+    ? `→ ${Math.floor(Math.max(s,a))}〜${Math.floor(e)}歳の間に、あわせて ${man(p)} 出ていく計算です。`
+    : `→ 退職の日（${Math.floor(a)}歳）より前に終わるので、計算には入りません。`;
 }
 function renderPenCompare(){
   const box=$('penCmp'); box.textContent='';
@@ -657,7 +686,7 @@ function renderMoney(){
   const lead=document.createElement('div'); lead.className='sub';
   lead.textContent=`退職してから${num(m.lifeAge)||90}歳までに出ていくお金と、入ってくるお金を足し引きして、いまの資産で足りるかを見ます。`;
   box.append(lead);
-  renderAgeNote(); renderSaveNote(); renderPenNote(); renderPenCompare(); renderActuals();
+  renderAgeNote(); renderSaveNote(); renderPenNote(); renderParentNote(); renderPenCompare(); renderActuals();
   if(!moneyReady(m)){ const p=document.createElement('div'); p.className='empty'; p.textContent='下の「'+missing(m).join('」「')+'」を入れると計算します。年金と退職金も入れると、より正確になります。'; box.append(p); return; }
   const c=calc(m), up=calc(m, num(m.living)+1);
   // 物価や配偶者の年金が入ると、月の額が途中で変わるので「月○×○年」とは書けない
@@ -668,6 +697,7 @@ function renderMoney(){
     [infl ? `年金までの生活費（${+c.bridgeYears.toFixed(1)}年・${tag}）` : num(m.work)>0 ? `年金までの生活費（働く分を引いて月${man(c.bridgeMonthly)}×${+c.bridgeYears.toFixed(1)}年）` : `年金までの生活費（${+c.bridgeYears.toFixed(1)}年）`, man(c.bridge)],
     [c.after>0 ? (infl ? `年金で足りない分（${+c.afterYears.toFixed(1)}年・${tag}）` : `年金で足りない分（月${man(c.gapMonthly)}×${+c.afterYears.toFixed(1)}年）`) : '年金が始まったあと', c.after>0?man(c.after):'年金でまかなえる'],
     ['もしもの予備', man(num(m.reserve))],
+    ...(c.parent>0 ? [[`親のために出るお金（${num(m.parentYears)}年ぶん${num(m.infl)>0?'・物価こみ':''}）`, man(c.parent)]] : []),
     ['住民税・一度だけのお金', man(num(m.tax)+num(m.oneTime))],
     ['退職金・入ってくるお金', '−'+man(Math.abs(num(m.severance)+num(m.otherIn)))],
   ];
@@ -676,7 +706,7 @@ function renderMoney(){
   for(const [a,b] of rows){ const r=document.createElement('div'); r.className='row'; const s=document.createElement('span'); s.textContent=a; const v=document.createElement('b'); v.textContent=b; r.append(s,v); box.append(r); }
   const read=document.createElement('details'); read.className='sub'; read.style.margin='6px 0';
   read.innerHTML='<summary>この表の読み方</summary>'
-    +'<div style="margin-top:6px">上の4行が<b>出ていくお金</b>、−が付いた行が<b>入ってくるお金</b>です。'
+    +'<div style="margin-top:6px">−が付いていない行が<b>出ていくお金</b>、−が付いた行が<b>入ってくるお金</b>です。'
     +'その合計が「必要なお金」。それを、いまの資産でまかなえるかを見たのが「余白」です。'
     +'＋なら足りる見込み、−なら足りない見込みです。</div>';
   box.append(read);
@@ -1197,7 +1227,7 @@ function fillMoney(){
   document.querySelectorAll('[data-c]').forEach(inp=>{ const v=data.cmp[inp.dataset.c]; inp.value = (v===''||v==null)?'':v; });
   // 「くわしく」に何か入っている人は、たたまずに開いておく（年金年齢などの既定値は数えない）
   const m=data.money;
-  if(['otherIn','work','reserve','tax','oneTime','age','spousePension','spouseAt'].some(k=>m[k]!==''&&m[k]!=null) || num(m.pensionAge)!==65 || num(m.lifeAge)!==90 || num(m.infl)>0) $('moreBox').open=true;
+  if(['otherIn','work','reserve','tax','oneTime','age','spousePension','spouseAt','parentCost','parentYears','parentAt'].some(k=>m[k]!==''&&m[k]!=null) || num(m.pensionAge)!==65 || num(m.lifeAge)!==90 || num(m.infl)>0) $('moreBox').open=true;
 }
 
 // ---------- これまでの記録（30日） ----------
@@ -1343,7 +1373,7 @@ function cleanAi(t){
           .replace(/^([ \t]*)(やること[:：][ \t]*){2,}/gm,'$1やること：')  // 「やること：」の重なり
           .replace(/\n{3,}/g,'\n\n').trim();
 }
-const AI_EXAMPLES = ['1年遅らせると何が変わる？','辞めたあとの健康保険はどれがいい？','退職の翌年にかかるお金は？'];
+const AI_EXAMPLES = ['1年遅らせると何が変わる？','辞めたあとの健康保険はどれがいい？','退職の翌年にかかるお金は？','親の介護が始まったら、お金はどう考える？'];
 let chatHistory = [];
 
 function getKey(){ try{ return (localStorage.getItem(KEY_STORE)||'').trim(); }catch(e){ return ''; } }
@@ -1359,6 +1389,7 @@ function dataSummary(){
   f('年金（家族の合計・ひと月・65歳からの額）','pension','万円');
   if(num(m.pension)>0) L.push(`年金を受け取りはじめる年齢：${clampPA(m.pensionAge)}歳（ひと月 ${pensionMonthly(m).toFixed(1)}万円）`);
   if(spouseOn(m)) L.push(`配偶者の年金：ひと月 ${num(m.spousePension)}万円（あなたが${spouseStart(m)}歳のときから）。上の年金はあなたの分だけ`);
+  if(parentOn(m)) L.push(`親のために出るお金：ひと月 ${num(m.parentCost)}万円を${num(m.parentYears)}年（あなたが${Math.floor(parentStart(m))}歳のときから）`);
   L.push('物価の上がり方：'+(num(m.infl)>0?`年${num(m.infl)}%で計算`:'考えない'));
   f('退職金・退職手当','severance','万円'); f('ほかに入ってくるお金','otherIn','万円'); f('退職後に働いて得るお金（ひと月）','work','万円');
   f('もしもの予備','reserve','万円'); f('退職翌年の住民税','tax','万円'); f('一度だけ出るお金','oneTime','万円'); f('何歳までを考えるか','lifeAge','歳');
@@ -1452,6 +1483,7 @@ function sumModel(){
   f('assets','いまの資産','万円'); f('income','いまの手取り（月）','万円'); f('living','生活費（月）','万円');
   if(num(m.pension)>0) r2.push([spouseOn(m)?'年金・あなた（月）':'年金（月）', `${pensionMonthly(m).toFixed(1)}万円（${clampPA(m.pensionAge)}歳から）`]);
   if(spouseOn(m)) r2.push(['年金・配偶者（月）', `${num(m.spousePension)}万円（あなたが${spouseStart(m)}歳から）`]);
+  if(parentOn(m)) r2.push(['親のために出るお金（月）', `${num(m.parentCost)}万円×${num(m.parentYears)}年（${Math.floor(parentStart(m))}歳から）`]);
   f('severance','退職金（手取り）','万円'); f('otherIn','ほかに入るお金','万円'); f('work','退職後に働く分（月）','万円'); f('reserve','もしもの予備','万円');
   r2.push(['物価', num(m.infl)>0?`年${num(m.infl)}%上がる計算`:'考えない']);
   blocks.push({h:'入れた数字', rows:r2});
@@ -1630,6 +1662,9 @@ const TODO_PICKS = [
   ['年の途中で辞めた場合、確定申告が必要か確かめる（翌年の確定申告の時期）', null, ''],
   ['車の保険・自動車税などの引き落とし口座を確かめる', null, ''],
   ['退職後の住まい（住み替え・リフォーム）を考える', null, ''],
+  ['親が住んでいる地域の「地域包括支援センター」の場所と電話番号を調べておく', null, ''],
+  ['親の年金・貯金・保険証・かかりつけ医・通帳の場所を、元気なうちに聞いておく', null, ''],
+  ['親の見守り方（電話・アプリ・見守りサービス）を家族で決める', null, ''],
 ];
 function renderPicks(){
   const box=$('pickList'); box.textContent='';
@@ -1673,6 +1708,8 @@ const INPUT_CHECKS={
   work:     v=> v>150 ? 'ひと月にしては大きい額です。年の額を入れていませんか？' : '',
   severance:v=> v>20000 ? '2億円をこえています。単位（万円）を確かめてください。' : v>0 && v<10 ? '単位は「万円」です。1,800万円なら 1800 と入れます。' : '',
   spousePension:v=> v>50 ? 'ひと月にしては大きい額です。年の額を12で割って入れてください。' : '',
+  parentCost:v=> v>50 ? 'ひと月にしては大きい額です。年の額を入れていませんか？' : '',
+  parentYears:v=> v>30 ? '30年をこえています。「何年続くか」の年数を入れてください。' : '',
 };
 function checkInput(inp){
   const k=inp.dataset.m, fn=INPUT_CHECKS[k]; if(!fn) return;
