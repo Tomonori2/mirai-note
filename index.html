@@ -26,7 +26,10 @@
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   font-size:17px;line-height:1.6;padding-bottom:84px}
-header{padding:18px 16px 6px}
+header{padding:12px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:560px;margin:0 auto}
+#gearBtn{background:none;color:var(--sub);border:1px solid var(--line);padding:6px 12px;font-size:13px;font-weight:600;border-radius:20px;white-space:nowrap}
+#gearBtn .i{font-size:16px;margin-right:4px}
+#gearBtn.on{color:var(--main);background:var(--main-soft);border-color:var(--main)}
 header h1{font-size:15px;color:var(--sub);margin:0;font-weight:600;letter-spacing:.05em}
 main{padding:0 16px;max-width:560px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
@@ -127,7 +130,7 @@ body.sum{padding-bottom:0}
 </style>
 </head>
 <body>
-<header><h1>🌅 つぎの暮らしノート</h1></header>
+<header><h1>🌅 つぎの暮らしノート</h1><button id="gearBtn" aria-label="設定"><span class="i">⚙️</span>設定</button></header>
 <main>
 
 <!-- ホーム -->
@@ -137,7 +140,7 @@ body.sum{padding-bottom:0}
     <div>退職の前後の<b>お金</b>と<b>準備</b>を、1か所で見るノートです。</div>
     <div class="sub" style="margin-top:8px">この順に進むと、3分くらいで形になります。</div>
     <ol style="margin:8px 0;padding-left:22px">
-      <li><b>退職の日</b>を入れる（「設定」）。決まっていなければ「未定」のままで大丈夫です</li>
+      <li><b>退職の日</b>を入れる（右上の「⚙設定」）。決まっていなければ「未定」のままで大丈夫です</li>
       <li><b>お金の数字</b>を入れる（「お金」）。生まれた年月・資産・手取り・生活費の4つから始められます</li>
       <li><b>やること</b>を見る。健康保険や年金の手続きが、期限つきで入っています</li>
       <li>毎日は<b>ホーム</b>だけ見ればOK。「きょうの一歩」と「ならし運転」を押すだけです</li>
@@ -308,7 +311,7 @@ body.sum{padding-bottom:0}
         <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> を開き、Googleアカウントでログインします</li>
         <li>「APIキーを作成（Create API key）」を押します</li>
         <li>出てきた <b>AIza…</b> で始まる文字をコピーします</li>
-        <li>このアプリの「設定」→「AI相談のキー」に貼って保存します</li>
+        <li>このアプリの右上の「⚙設定」→「AI相談のキー」に貼って保存します</li>
       </ol>
       <div>キーは、この端末の中だけに保存されます。ほかの人には見えません。</div>
       <div class="add"><button class="ghost small" id="goKey">設定をひらく</button></div>
@@ -440,11 +443,11 @@ body.sum{padding-bottom:0}
   <button data-tab="todo"><span class="i">✅</span>やること</button>
   <button data-tab="ai"><span class="i">💬</span>相談</button>
   <button data-tab="day"><span class="i">☀️</span>理想の1日</button>
-  <button data-tab="set"><span class="i">⚙️</span>設定</button>
+  <button data-tab="set" hidden><span class="i">⚙️</span>設定</button><!-- 右上の⚙から開く。ほかの場所の「設定へ飛ぶ」ボタンのため残している -->
 </nav>
 
 <script>
-const VERSION = 'v3.5';
+const VERSION = 'v3.6';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -608,7 +611,7 @@ function moneyReady(m){ return missing(m).length===0; }
 function renderSaveNote(){
   const m=data.money, el=$('saveNote'), base='退職の日までの間、「手取り − 生活費」がたまっていく計算にします。ボーナスも足して12で割ると、より近い数字になります。';
   if(!(num(m.income)>0)){ el.textContent=base; return; }
-  if(!parseYmd(data.retireDate)){ el.textContent='退職の日が未定なので、この手取りはまだ計算に使っていません（「設定」で日を入れると使います）。'; return; }
+  if(!parseYmd(data.retireDate)){ el.textContent='退職の日が未定なので、この手取りはまだ計算に使っていません（右上の「⚙設定」で日を入れると使います）。'; return; }
   const pre=preSave(m), md=monthsDays(todayYmd(), data.retireDate);
   el.textContent = pre>=0
     ? `退職の日まで あと${md.m}か月。この間に ${man(pre)} たまる計算です（生活費を引いたあと）。`
@@ -702,7 +705,7 @@ function renderMoney(){
 //   ・退職手当が変わることがある
 function compare(){
   const m=data.money, c=data.cmp, A=data.retireDate, B=c.date;
-  if(!parseYmd(A)) return {msg:'「設定」で退職の日を入れると、くらべられます（未定のままだと起点がありません）。'};
+  if(!parseYmd(A)) return {msg:'右上の「⚙設定」で退職の日を入れると、くらべられます（未定のままだと起点がありません）。'};
   if(!parseYmd(B)) return {msg:'くらべる日を入れると、ここに並べて出します。'};
   if(!moneyReady(m)) return {msg:'上の「まずはこれだけ」を先に入れてください。'};
   // 空なら「まずはこれだけ」の手取り（ひと月）×12 を使う
@@ -892,7 +895,7 @@ function renderHomeMoney(){
 // ---------- ホーム ----------
 function renderCountdown(){
   const t=todayYmd(), r=data.retireDate;
-  if(!parseYmd(r)){ $('cdTitle').textContent='退職の日'; $('cdDays').textContent='未定'; $('cdDetail').textContent='決まったら「設定」で入れると、日数を数えます。'; return; }
+  if(!parseYmd(r)){ $('cdTitle').textContent='退職の日'; $('cdDays').textContent='未定'; $('cdDetail').textContent='決まったら右上の「⚙設定」で入れると、日数を数えます。'; return; }
   const d=daysBetween(t,r);
   if(d>0){
     $('cdTitle').textContent='退職の日まで';
@@ -1183,7 +1186,7 @@ $('todoText').addEventListener('keydown',e=>{ if(e.key==='Enter') $('todoAdd').c
 document.querySelectorAll('[data-m]').forEach(inp=>{
   inp.addEventListener('input',()=>{ const k=inp.dataset.m, v=inp.value.trim();
     data.money[k] = k==='birth' ? (/^\d{4}-\d{2}$/.test(v)?v:'') : k==='job' ? (JOBS.includes(v)?v:'') : (v===''?'':Number(v));
-    checkInput(inp); save(); renderMoney(); renderHomeMoney(); renderCompare(); renderSetup(); renderReview(); });
+    checkInput(inp); save(); renderMoney(); renderHomeMoney(); renderCompare(); renderSetup(); renderReview(); renderWelcome(); });
 });
 document.querySelectorAll('[data-c]').forEach(inp=>{
   inp.addEventListener('input',()=>{ const k=inp.dataset.c, v=inp.value.trim();
@@ -1402,8 +1405,8 @@ async function callGemini(contents){
   throw last||new Error('つながりませんでした');
 }
 function friendlyError(e){
-  if(e.message==='NO_KEY') return 'まだキーが入っていません。「設定」の「AI相談のキー」に入れてください。';
-  if(e.status===400||e.status===401||e.status===403) return 'キーが正しくないようです。「設定」で入れ直してください。';
+  if(e.message==='NO_KEY') return 'まだキーが入っていません。右上の「⚙設定」の「AI相談のキー」に入れてください。';
+  if(e.status===400||e.status===401||e.status===403) return 'キーが正しくないようです。右上の「⚙設定」で入れ直してください。';
   if(e.status===429) return '使える回数の上限のようです。少し待ってからもう一度お試しください。';
   if(e instanceof TypeError) return 'インターネットにつながっていないようです。電波のよいところでもう一度お試しください。';
   return e.message||'うまくいきませんでした。';
@@ -1715,11 +1718,16 @@ $('welcomeOk').onclick=()=>{ data.welcomed=true; save(); $('welcome').hidden=tru
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.tab));
+  $('gearBtn').classList.toggle('on',b.dataset.tab==='set');
   window.scrollTo(0,0);
 });
+$('gearBtn').onclick=()=>document.querySelector('nav button[data-tab="set"]').click();
+
+// お金の数字（資産か生活費）を入れたら、ようこそは役目を終えたので隠す（案内は「つぎにやること」が引き継ぐ）
+function renderWelcome(){ $('welcome').hidden = !!data.welcomed || num(data.money.assets)>0 || num(data.money.living)>0; }
 
 function fillAll(){ fillMoney(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
-function renderAll(){ applyFont(); $('welcome').hidden=!!data.welcomed; updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); }
+function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); }
 
 load(); fillAll(); renderAll();
 // アドレスの最後に ?tab=money などを付けると、そのタブで開く
