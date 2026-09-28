@@ -1,6 +1,6 @@
 {
-  "name": "つぎの暮らしノート",
-  "short_name": "つぎの暮らし",
+  "name": "未来ノート",
+  "short_name": "未来ノート",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

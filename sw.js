@@ -1,12 +1,12 @@
 // 画面の部品だけを手元に置き、電波がなくても開けるようにする
-const CACHE = 'taishoku-note-v3.8';
+const CACHE = 'mirai-note-v3.9';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && /^(taishoku|mirai)-note-/.test(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 // ネットを先に見て、だめなら手元の控えを出す（直した版がすぐ届くように）
 self.addEventListener('fetch', e => {

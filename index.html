@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>つぎの暮らしノート</title>
+<title>未来ノート</title>
 <meta name="theme-color" content="#2f6f62">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
@@ -146,7 +146,7 @@ nav button{min-width:0;white-space:nowrap}
 </style>
 </head>
 <body>
-<header><h1>🌅 つぎの暮らしノート</h1><button id="gearBtn" aria-label="設定"><span class="i">⚙️</span>設定</button></header>
+<header><h1>🌅 未来ノート</h1><button id="gearBtn" aria-label="設定"><span class="i">⚙️</span>設定</button></header>
 <main>
 
 <!-- ホーム -->
@@ -604,7 +604,7 @@ nav button{min-width:0;white-space:nowrap}
 </nav>
 
 <script>
-const VERSION = 'v3.8';
+const VERSION = 'v3.9';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -1469,7 +1469,7 @@ function backupText(){ return JSON.stringify({app:'taishoku-note', ver:VERSION, 
 function markBackup(){ data.lastBackup=todayYmd(); save(); renderHabit(); }
 $('bkFile').onclick=()=>{
   const blob=new Blob([backupText()],{type:'application/json'}), a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='つぎの暮らしノート_控え_'+todayYmd()+'.json'; a.click();
+  a.href=URL.createObjectURL(blob); a.download='未来ノート_控え_'+todayYmd()+'.json'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000); $('bkMsg').textContent='ファイルに保存しました（ダウンロードの中にあります）。'; markBackup();
 };
 $('bkCopy').onclick=async()=>{
@@ -1534,7 +1534,7 @@ $('bkFileIn').onchange=async()=>{ const f=$('bkFileIn').files[0]; if(!f) return;
 // ---------- AI相談（Gemini・キーは利用者が自分で入れる） ----------
 const KEY_STORE = 'taishoku-note-gemini';
 const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-const AI_PROMPT = `あなたは「つぎの暮らしノート」の退職相談役です。日本で退職を考えている人（会社員・公務員どちらも）の相談にのります。
+const AI_PROMPT = `あなたは「未来ノート」の退職相談役です。日本で退職を考えている人（会社員・公務員どちらも）の相談にのります。
 【話し方】
 - 結論を先に。専門用語は必ずかみくだく（例：「任意継続＝辞めた会社の健康保険を最長2年つづける仕組み」）。
 - スマホで読むので短く。本文は400字以内（確認先・やることの行は含めない）。長くなりそうなら大事な3点にしぼり「くわしく知りたければ聞いてください」と添える。
@@ -1705,7 +1705,7 @@ function sumModel(){
     const rows=data.day.map(it=>[it.text, `今週${last7(it.id).filter(Boolean).length}日`]);
     blocks.push({h:'理想の1日（ならし運転）', rows, lines: s.best?[`🔥 いま${s.cur}日つづいています（最長${s.best}日）`]:[]});
   }
-  return {title:'つぎの暮らしノート　まとめ', date:jpDate(todayYmd())+' 時点', blocks, chart,
+  return {title:'未来ノート　まとめ', date:jpDate(todayYmd())+' 時点', blocks, chart,
     note:'入れた数字を足し引きした目安です。運用で増える分は入れていません。制度の細かいところは、勤め先・年金事務所・市区町村などで確かめてください。'};
 }
 function renderSum(){
@@ -1799,7 +1799,7 @@ async function sumToCanvas(){
     }
     y+=20; ctx.font=`400 26px ${FONT}`;
     for(const ln of wrap(ctx,'※ '+md.note,CW)){ txt(ln,P,26,IMG.sub,400); y+=38; }
-    y+=10; txt('つぎの暮らしノート　tomonori2.github.io/taishoku-note',P,24,IMG.sub,400); y+=34;
+    y+=10; txt('未来ノート　tomonori2.github.io/mirai-note',P,24,IMG.sub,400); y+=34;
     return y+P;
   };
   cv.width=W; cv.height=4000; const H=layout(false);
@@ -1815,14 +1815,14 @@ $('sumImg').onclick=async()=>{
     const cv=await sumToCanvas();
     const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
     if(!blob) throw new Error('blob');
-    const name='つぎの暮らしノート_まとめ_'+todayYmd()+'.png';
+    const name='未来ノート_まとめ_'+todayYmd()+'.png';
     const file=new File([blob], name, {type:'image/png'});
     const url=URL.createObjectURL(blob);
     const img=document.createElement('img'); img.src=url; img.alt='まとめの画像'; pv.append(img);
     const btns=document.createElement('div'); btns.className='add';
     if(navigator.canShare && navigator.canShare({files:[file]})){
       const sh=document.createElement('button'); sh.textContent='📤 LINEなどで送る';
-      sh.onclick=async()=>{ try{ await navigator.share({files:[file], title:'つぎの暮らしノート まとめ'}); }catch(e){} };
+      sh.onclick=async()=>{ try{ await navigator.share({files:[file], title:'未来ノート まとめ'}); }catch(e){} };
       btns.append(sh);
     }
     const dl=document.createElement('a'); dl.href=url; dl.download=name; dl.textContent='💾 画像を保存';
@@ -2400,7 +2400,7 @@ load(); fillAll(); renderAll();
 $('goNowIncome').onclick=()=>{ const el=document.querySelector('[data-m="income"]'); el.scrollIntoView({block:'center',behavior:'smooth'}); el.focus({preventScroll:true}); };
 $('goCmpIncome').onclick=()=>{ const el=document.querySelector('[data-c="income"]'); el.scrollIntoView({block:'center',behavior:'smooth'}); el.focus({preventScroll:true}); };
 $('goWorkIncome').onclick=()=>{ $('moreBox').open=true; const el=document.querySelector('[data-m="work"]'); el.scrollIntoView({block:'center',behavior:'smooth'}); el.focus({preventScroll:true}); };
-$('ver').textContent='つぎの暮らしノート '+VERSION+' ・ 記録はこの端末の中だけ';
+$('ver').textContent='未来ノート '+VERSION+' ・ 記録はこの端末の中だけ';
 // 日をまたいで開き直したとき、日数を作り直す
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) renderAll(); });
 window.addEventListener('pageshow',e=>{ if(e.persisted) renderAll(); });
