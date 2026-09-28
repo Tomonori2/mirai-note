@@ -1,5 +1,5 @@
 // 画面の部品だけを手元に置き、電波がなくても開けるようにする
-const CACHE = 'taishoku-note-v3.7';
+const CACHE = 'taishoku-note-v3.8';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

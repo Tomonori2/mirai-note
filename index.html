@@ -121,12 +121,28 @@ body.sum{padding-bottom:0}
 .seg{display:flex;gap:6px;margin-top:10px}
 .seg button{flex:1;background:var(--card);color:var(--ink);border:1px solid var(--line);padding:12px 6px;font-weight:600}
 .seg button[aria-pressed="true"]{background:var(--main);color:var(--onMain);border-color:var(--main)}
-.seg button:nth-child(2){font-size:1.1em}.seg button:nth-child(3){font-size:1.2em}
+#fontSeg button:nth-child(2){font-size:1.1em}#fontSeg button:nth-child(3){font-size:1.2em}
 .msg{border-radius:14px;padding:10px 14px;margin:10px 0;white-space:pre-wrap;word-break:break-word;font-size:16px}
 .msg.me{background:var(--main);color:var(--onMain);margin-left:40px}
 .msg.bot{background:var(--card);border:1px solid var(--line);margin-right:12px}
 .msg.wait{color:var(--sub)}
 .msg .todoAdd{display:block;margin-top:8px;white-space:normal;text-align:left}
+.ex{padding:10px 0;border-bottom:1px dashed var(--line)}
+.ex:last-child{border-bottom:0}
+.ex .n{font-weight:700}
+.ex .r{color:var(--main);font-weight:700;white-space:nowrap}
+.ex .p{font-size:14px;color:var(--sub)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin-top:8px}
+.badges div{border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center;font-size:13px;color:var(--sub)}
+.badges div b{display:block;font-size:24px;line-height:1.3}
+.badges div.got{background:var(--main-soft);border-color:var(--main);color:var(--ink)}
+.badges div:not(.got) b{filter:grayscale(1);opacity:.35}
+.rcard{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
+.rcard.got{background:var(--main-soft);border-color:var(--main)}
+.rcard .h{font-weight:700}
+.rcard .c{font-size:14px;color:var(--sub)}
+.rcard.new{outline:2px solid #c98a2e;outline-offset:1px}
+nav button{min-width:0;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -175,9 +191,12 @@ body.sum{padding-bottom:0}
     <h2>きょうの ならし運転</h2>
     <div class="sub">退職してから急に「理想の1日」は始められません。いまのうちから少しずつ試して、できた日を押しておきます。</div>
     <div id="streak"></div>
+    <button class="ghost small" id="tiredBtn" style="margin-top:8px"></button>
     <div id="habitList"></div>
     <div id="habitFoot"></div>
   </div>
+  <div class="card" id="newCard" hidden></div>
+  <div class="card" id="homeBody" hidden></div>
   <div class="card" id="homeMoney"></div>
 </section>
 
@@ -365,6 +384,130 @@ body.sum{padding-bottom:0}
     <h2>これまでの記録</h2>
     <div id="dayStats"></div>
   </div>
+  <div class="card">
+    <h2>🎁 ごほうびカード</h2>
+    <div class="sub">続けた日数などの節目で、カードが1枚ずつ増えます。カードには、体と暮らしのひとことが書いてあります。まだのカードは「？」になっています。</div>
+    <div id="cardList"></div>
+  </div>
+</section>
+
+<!-- からだ -->
+<section id="body">
+  <div class="card">
+    <h2>からだの記録</h2>
+    <div class="sub">つぎの暮らしを楽しむ土台は、体です。血圧・体重・筋トレを記録すると、変化がグラフで見えます。記録はこの端末の中だけに保存します。</div>
+    <div class="seg" id="bodyTabs" style="margin-top:12px">
+      <button data-bt="menu" aria-pressed="true">筋トレ</button>
+      <button data-bt="rec" aria-pressed="false">血圧・体重</button>
+      <button data-bt="sober" aria-pressed="false">お酒</button>
+    </div>
+  </div>
+
+  <div data-bp="menu">
+    <div class="card">
+      <h2>筋トレのメニュー</h2>
+      <div class="sub">自分に合うコースを選んでください。やった日に「きょうやった」を押すと、今週の回数が数えられます。</div>
+      <select id="courseSel" style="margin-top:10px">
+        <option value="home">家で・道具なし</option>
+        <option value="gym1">ジムで・はじめて（マシン）</option>
+        <option value="gym2">ジムで・なれている人</option>
+      </select>
+      <div id="courseBox"></div>
+      <div id="trainDone"></div>
+      <details class="note warn" style="margin-top:12px"><summary style="font-weight:700;cursor:pointer">⚠️ はじめる前に（安全のために）</summary>
+        <div style="margin-top:6px">・痛みが出たら、その日はやめる。「きつい」はOK、「痛い」はNGです<br>
+        ・力むときに息を止めすぎない（血圧が一気に上がります）。吐きながら持ち上げます<br>
+        ・血圧が高い人・心臓や関節に持病がある人は、先にかかりつけ医に相談してください<br>
+        ・重いバーベルは、安全バー（落としても受け止める棒）を使うか、補助の人を付けてください<br>
+        ・はじめは軽く。ウォームアップ（軽い重さで数回）をしてから本番に入ります</div>
+      </details>
+    </div>
+    <div class="card">
+      <h2>重さと回数の記録</h2>
+      <div class="sub">持ち上げた重さと回数を入れると、「1回だけなら挙がりそうな重さ」の目安を出して、自己ベストをお知らせします。</div>
+      <label class="f">種目</label>
+      <input type="text" id="liftName" list="liftNames" maxlength="30" placeholder="例：ベンチプレス">
+      <datalist id="liftNames"></datalist>
+      <div class="add">
+        <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="decimal" id="liftKg" placeholder="重さ"><span>kg</span></div>
+        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="liftReps" placeholder="回数"><span>回</span></div>
+        <input type="date" id="liftDate" style="flex:0 1 160px">
+        <button id="liftAdd">記録する</button>
+      </div>
+      <div id="liftMsg"></div>
+      <div id="liftView"></div>
+    </div>
+  </div>
+
+  <div data-bp="rec" hidden>
+    <div class="card">
+      <h2>血圧・体重を記録する</h2>
+      <div class="sub">血圧は、朝おきてトイレのあと、座って1〜2分休んでから測るのが基本です。入れたものだけ記録します（体重だけでもOK）。</div>
+      <label class="f">日付</label><input type="date" id="recDate">
+      <div class="add">
+        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="recSys" placeholder="上"><span>上</span></div>
+        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="recDia" placeholder="下"><span>下</span></div>
+        <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="decimal" id="recWt" placeholder="体重"><span>kg</span></div>
+      </div>
+      <div class="add"><button id="recAdd">記録する</button></div>
+      <div id="recMsg"></div>
+    </div>
+    <div class="card">
+      <h2>血圧のうつりかわり</h2>
+      <div id="bpView"></div>
+      <div class="sub" style="margin-top:8px">目安：家で測った血圧が <b>上135・下85</b> 以上なら高め、とされています（日本高血圧学会）。このアプリは病気の判断はしません。高い日が続くときは、医師に相談してください。</div>
+    </div>
+    <div class="card">
+      <h2>体重のうつりかわり</h2>
+      <div id="wtView"></div>
+    </div>
+    <div class="card">
+      <h2>これまでの記録</h2>
+      <div id="recList"></div>
+    </div>
+  </div>
+
+  <div data-bp="sober" hidden>
+    <div class="card" id="soberOff">
+      <h2>お酒なしの日を数える</h2>
+      <div class="sub">お酒を控えたい人向けです。「始めた日」を入れると、飲まなかった日数を数えます。毎日押す必要はなく、<b>飲んだ日だけ</b>押せば大丈夫です。</div>
+      <label class="f">始めた日</label><input type="date" id="soberStartIn">
+      <label class="f">お酒に使っていた額（1日あたり・だいたい）</label><div class="unit"><input type="number" inputmode="numeric" id="soberCostIn" placeholder="例：500"><span>円/日</span></div>
+      <div class="add"><button id="soberOn">数えはじめる</button></div>
+    </div>
+    <div id="soberOnBox" hidden>
+      <div class="card">
+        <h2>お酒なしで</h2>
+        <div class="big" id="soberDays">–</div>
+        <div class="sub" id="soberDetail"></div>
+        <div id="soberSaved"></div>
+        <div class="add">
+          <button class="ghost" id="soberDrank">🍺 きょうは飲んだ</button>
+        </div>
+        <div class="sub" style="margin-top:6px">飲んだ日も、責めなくて大丈夫です。記録しておくと「どんな日に飲みたくなるか」が見えてきます。また次の日から数えましょう。</div>
+      </div>
+      <div class="card">
+        <h2>節目のバッジ</h2>
+        <div id="soberBadges"></div>
+      </div>
+      <div class="card">
+        <h2>お酒をやめると、体はこう変わると言われています</h2>
+        <div class="sub">
+          ・<b>数日〜</b>：眠りが深くなり、朝の気分が安定しやすい<br>
+          ・<b>数週間〜</b>：血圧が下がりやすい（お酒は血圧を上げる原因のひとつです）<br>
+          ・<b>1〜3か月</b>：肝臓の数値（γ-GTPなど）が下がりやすい<br>
+          ・<b>数か月〜半年</b>：腸の調子が整っていく<br>
+          ※ 人によって違います。長く多く飲んでいた人が急にやめて、手のふるえ・汗・眠れないなどが強く出たときは、医療機関に相談してください。</div>
+      </div>
+      <div class="card">
+        <h2>設定</h2>
+        <label class="f">始めた日</label><input type="date" id="soberStartEdit">
+        <label class="f">お酒に使っていた額（1日あたり）</label><div class="unit"><input type="number" inputmode="numeric" id="soberCostEdit"><span>円/日</span></div>
+        <div class="add"><button class="small" id="soberSaveSet">保存する</button> <button class="ghost small" id="soberStop">数えるのをやめる</button></div>
+        <div id="soberDrankList" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- 設定 -->
@@ -400,7 +543,7 @@ body.sum{padding-bottom:0}
   <div class="card">
     <h2>データの控え（バックアップ）</h2>
     <div class="sub">このアプリの記録はスマホの中だけにあります。ブラウザの掃除や機種変更で消えるので、ときどき控えを取ってください。</div>
-    <div class="note warn">🔒 控えにはお金の数字と、ならし運転の記録が入っています。人に送ったり、公開の場所に置いたりしないでください。</div>
+    <div class="note warn">🔒 控えにはお金の数字と、ならし運転・からだ（血圧・体重など）の記録が入っています。人に送ったり、公開の場所に置いたりしないでください。</div>
     <div class="add">
       <button id="bkFile">ファイルに保存</button>
       <button class="ghost" id="bkCopy">文字をコピー</button>
@@ -426,7 +569,7 @@ body.sum{padding-bottom:0}
   </div>
   <div class="card">
     <h2>記録を全部消す</h2>
-    <div class="sub">このアプリに入れた数字・やること・ならし運転の記録を、すべて消します。消すと元に戻せません。先に「データの控え」を取ってからにしてください。</div>
+    <div class="sub">このアプリに入れた数字・やること・ならし運転・からだの記録を、すべて消します。消すと元に戻せません。先に「データの控え」を取ってからにしてください。</div>
     <div class="add" style="margin-top:8px"><button class="danger" id="wipeAll">全部消す</button> <span class="sub" id="wipeMsg"></span></div>
   </div>
 </section>
@@ -456,11 +599,12 @@ body.sum{padding-bottom:0}
   <button data-tab="todo"><span class="i">✅</span>やること</button>
   <button data-tab="ai"><span class="i">💬</span>相談</button>
   <button data-tab="day"><span class="i">☀️</span>理想の1日</button>
+  <button data-tab="body"><span class="i">💪</span>からだ</button>
   <button data-tab="set" hidden><span class="i">⚙️</span>設定</button><!-- 右上の⚙から開く。ほかの場所の「設定へ飛ぶ」ボタンのため残している -->
 </nav>
 
 <script>
-const VERSION = 'v3.7';
+const VERSION = 'v3.8';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -508,8 +652,28 @@ function blank(){
     log: {},          // {'2026-09-24':[できた項目の番号]}
     nextDayId: DEFAULT_DAY.length+1,  // 番号は使い回さない（消した行の記録が別の行に付かないように）
     actuals: [],      // 実際の資産の記録 [{date:'2026-09-24', amt:2500}]
+    tired: {},        // おつかれの日 {'2026-09-28':true}（軽いメニューに切りかえた日）
+    cards: {},        // もらったごほうびカード {カードの番号:'もらった日'}
+    cardNew: '',      // ホームでお知らせする、新しいカードの番号
+    body: blankBody(),
     lastBackup: '' };
 }
+function blankBody(){
+  return { course:'home',
+    trained: {},      // 筋トレをした日 {'2026-09-28':'home'}
+    lifts: [],        // 重さと回数 [{date, name, kg, reps}]
+    pbs: 0,           // 自己ベストを更新した回数（カード用）
+    rec: [],          // 血圧・体重 [{date, sys, dia, wt}]
+    soberOn: false, soberStart: '', soberCost: '', drank: [] };  // お酒なし（飲んだ日だけ記録）
+}
+// おつかれの日（夜勤明け・寝不足の日）の軽いメニュー。番号はマイナスにして「理想の1日」と重ならないようにする
+const EASY_DAY = [
+  {id:-1, text:'20〜30分の仮眠をとる'},
+  {id:-2, text:'外を10分歩いて、日の光を浴びる'},
+  {id:-3, text:'水分をしっかりとる'},
+  {id:-4, text:'いつもより早く寝る'},
+];
+function menuFor(d){ return data.tired[d] ? EASY_DAY : data.day; }
 let data;
 function load(){
   try{ const s=localStorage.getItem(KEY); data = s ? JSON.parse(s) : blank(); }catch(e){ data = blank(); }
@@ -521,6 +685,8 @@ function load(){
   if(Array.isArray(data.day) && data.day.some(x=>typeof x==='string'))
     data.day = data.day.map((x,i)=> typeof x==='string' ? {id:i+1, text:x} : x);
   if(!data.log || typeof data.log!=='object' || Array.isArray(data.log)) data.log={};
+  for(const k of ['tired','cards']) if(!data[k] || typeof data[k]!=='object' || Array.isArray(data[k])) data[k]={};
+  data.body = cleanBody(data.body);
   const usedIds=[...data.day.map(x=>x.id), ...Object.values(data.log).flat()].filter(Number.isInteger);
   if(!Number.isInteger(data.nextDayId) || data.nextDayId<=Math.max(0,...usedIds)) data.nextDayId=Math.max(0,...usedIds)+1;
   // 前の版で入った「最初のやること」にも、あとから期限の目安をつける（自分で期限を入れたものは触らない）
@@ -534,6 +700,7 @@ function save(){
   // 「ならし運転」の記録は直近180日ぶんだけ残す
   const keep=addDays(todayYmd(), -180);
   for(const d of Object.keys(data.log||{})) if(d<keep) delete data.log[d];
+  for(const d of Object.keys(data.tired||{})) if(d<keep) delete data.tired[d];
   try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){ alert('保存できませんでした。ブラウザの設定を確認してください。'); }
 }
 
@@ -1000,7 +1167,7 @@ function toggleHabit(id){
   const i=arr.indexOf(id);
   if(i<0) arr.push(id); else arr.splice(i,1);
   if(arr.length) data.log[d]=arr; else delete data.log[d];
-  save(); renderHabit(); renderStreak(); renderCal(); renderDayStats();
+  save(); checkCards(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderCards(); renderNewCard();
 }
 // 直近7日（きょうを含む）でできた日
 function last7(id){
@@ -1035,13 +1202,13 @@ function renderStreak(){
 // この4週間のカレンダー（日曜はじまり）
 function renderCal(){
   const box=$('cal'); box.textContent='';
-  const total=Math.max(1, data.day.length);
   const end=parseYmd(todayYmd()); const endDow=end.getDay();
   const first=addDays(todayYmd(), -(21+endDow));  // 今週の日曜から3週間さかのぼった日曜
   const g=document.createElement('div'); g.className='cal';
   for(const w of ['日','月','火','水','木','金','土']){ const h=document.createElement('div'); h.className='head'; h.textContent=w; g.append(h); }
   for(let i=0;i<28;i++){
     const d=addDays(first,i), n=(data.log[d]||[]).length, cell=document.createElement('div');
+    const total=Math.max(1, menuFor(d).length);
     const dt=parseYmd(d);
     cell.textContent=dt.getDate();
     if(n>0){ cell.classList.add('on'); cell.style.background='var(--main)'; cell.style.opacity=(0.35+0.65*Math.min(1,n/total)).toFixed(2); }
@@ -1066,10 +1233,15 @@ function renderDayEdit(){
   const card=document.createElement('div');
   card.style.cssText='background:var(--main-soft);border-radius:12px;padding:12px;margin-top:8px';
   const ttl=document.createElement('div'); ttl.style.fontWeight='700';
-  ttl.textContent=jpDate(d)+(d===todayYmd()?'（きょう）':'')+' の記録';
+  ttl.textContent=jpDate(d)+(d===todayYmd()?'（きょう）':'')+' の記録'+(data.tired[d]?'（おつかれの日）':'');
   card.append(ttl);
-  if(!data.day.length){ const p=document.createElement('div'); p.className='sub'; p.textContent='上の欄に「理想の1日」を書くと、ここで記録できます。'; card.append(p); }
-  for(const it of data.day){
+  const tb=document.createElement('button'); tb.className='ghost small'; tb.style.margin='6px 0';
+  tb.textContent = data.tired[d] ? 'ふだんのメニューにもどす' : '😴 この日は「おつかれの日」にする';
+  tb.onclick=()=>{ toggleTired(d); renderDayEdit(); };
+  card.append(tb);
+  const items=menuFor(d);
+  if(!items.length){ const p=document.createElement('div'); p.className='sub'; p.textContent='上の欄に「理想の1日」を書くと、ここで記録できます。'; card.append(p); }
+  for(const it of items){
     const on=(data.log[d]||[]).includes(it.id);
     const b=document.createElement('button'); b.className='hb'+(on?' on':''); b.style.margin='6px 0';
     const mk=document.createElement('span'); mk.className='mark'; mk.textContent='✓';
@@ -1079,7 +1251,7 @@ function renderDayEdit(){
       const arr=data.log[d]||[], i=arr.indexOf(it.id);
       if(i<0) arr.push(it.id); else arr.splice(i,1);
       if(arr.length) data.log[d]=arr; else delete data.log[d];
-      save(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderDayEdit();
+      save(); checkCards(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderDayEdit(); renderCards(); renderNewCard();
     };
     card.append(b);
   }
@@ -1088,11 +1260,20 @@ function renderDayEdit(){
   card.append(close);
   box.append(card);
 }
+// おつかれの日に切りかえる（記録は消さない。どちらのメニューで押しても「できた日」になる）
+function toggleTired(d){
+  if(data.tired[d]) delete data.tired[d]; else data.tired[d]=true;
+  save(); checkCards(); renderHabit(); renderCal(); renderStreak(); renderCards(); renderNewCard();
+}
 function renderHabit(){
   const list=$('habitList'), foot=$('habitFoot'); list.textContent=''; foot.textContent='';
-  if(!data.day.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='「理想の1日」タブに書くと、ここに出ます。'; list.append(p); return; }
+  const tired=!!data.tired[todayYmd()], tbtn=$('tiredBtn');
+  tbtn.textContent = tired ? '← ふだんのメニューにもどす' : '😴 きょうは おつかれの日（夜勤明け・寝不足など）';
+  const items=menuFor(todayYmd());
+  if(tired){ const n=document.createElement('div'); n.className='note'; n.textContent='おつかれさまです。きょうは軽いメニューです。ひとつできれば、きょうも「できた日」になります。'; list.append(n); }
+  if(!items.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='「理想の1日」タブに書くと、ここに出ます。'; list.append(p); return; }
   const done=todayLog();
-  for(const it of data.day){
+  for(const it of items){
     const on=done.includes(it.id);
     const b=document.createElement('button'); b.className='hb'+(on?' on':''); b.setAttribute('aria-pressed', on?'true':'false');
     const mk=document.createElement('span'); mk.className='mark'; mk.textContent='✓';
@@ -1107,11 +1288,11 @@ function renderHabit(){
     b.onclick=()=>toggleHabit(it.id);
     list.append(b);
   }
-  const n=data.day.filter(it=>done.includes(it.id)).length;
+  const n=items.filter(it=>done.includes(it.id)).length;
   const msg=document.createElement('div'); msg.className='note';
   msg.textContent = n===0 ? 'まだ今日の分はありません。ひとつだけでも押してみてください。'
-    : n===data.day.length ? `きょうは ${n}件ぜんぶできました 🎉`
-    : `きょうは ${n} / ${data.day.length} 件できました。`;
+    : n===items.length ? `きょうは ${n}件ぜんぶできました 🎉`
+    : `きょうは ${n} / ${items.length} 件できました。`;
   foot.append(msg);
   // 記録がたまってきたら控えをうながす
   const days=Object.keys(data.log).length;
@@ -1320,12 +1501,17 @@ function applyBackup(text){
     reviewYear: Number.isInteger(d.reviewYear)?d.reviewYear:undefined,
     actuals: Array.isArray(d.actuals)
       ? d.actuals.filter(x=>x && parseYmd(x.date) && isFinite(Number(x.amt))).map(x=>({date:x.date, amt:Number(x.amt)})).slice(-120)
-      : [] };
+      : [],
+    tired: {}, cards: {}, cardNew: '',
+    body: cleanBody(d.body) };
+  // おつかれの日・ごほうびカード：日付の形と、あるカードの番号だけを通す
+  if(d.tired && typeof d.tired==='object') for(const k of Object.keys(d.tired)) if(parseYmd(k) && d.tired[k]===true) data.tired[k]=true;
+  if(d.cards && typeof d.cards==='object') for(const c of CARDS) if(parseYmd(d.cards[c.id])) data.cards[c.id]=d.cards[c.id];
   // ならし運転の記録：日付の形と番号だけを通す
   if(d.log && typeof d.log==='object' && !Array.isArray(d.log)){
     for(const [day,ids] of Object.entries(d.log)){
       if(!parseYmd(day) || !Array.isArray(ids)) continue;
-      const list=ids.filter(v=>Number.isInteger(v));
+      const list=ids.filter(v=>Number.isInteger(v) && v>=-EASY_DAY.length);
       if(list.length) data.log[day]=list;
     }
   }
@@ -1748,6 +1934,448 @@ $('wipeAll').onclick=()=>{
   document.querySelector('nav button[data-tab="home"]').click(); window.scrollTo(0,0);
 };
 
+// ---------- からだ ----------
+// 控えや古い保存から読むときの関所：形のおかしいものは捨てる
+function cleanBody(o){
+  const b=blankBody(); o=(o&&typeof o==='object')?o:{};
+  const nOk=(v,lo,hi)=>{ const n=Number(v); return v!==''&&v!=null&&isFinite(n)&&n>=lo&&n<=hi ? n : ''; };
+  b.course = COURSES[o.course] ? o.course : 'home';
+  if(o.trained && typeof o.trained==='object' && !Array.isArray(o.trained))
+    for(const [d,c] of Object.entries(o.trained)) if(parseYmd(d)) b.trained[d] = COURSES[c]?c:'home';
+  if(Array.isArray(o.lifts)) b.lifts = o.lifts.filter(x=>x&&parseYmd(x.date)&&typeof x.name==='string'&&x.name.trim()&&nOk(x.kg,0.5,500)!==''&&Number.isInteger(Number(x.reps))&&Number(x.reps)>=1&&Number(x.reps)<=100)
+    .map(x=>({date:x.date, name:String(x.name).trim().slice(0,30), kg:Number(x.kg), reps:Number(x.reps)})).slice(-1000);
+  b.pbs = Number.isInteger(o.pbs)&&o.pbs>=0 ? o.pbs : 0;
+  if(Array.isArray(o.rec)) b.rec = o.rec.filter(x=>x&&parseYmd(x.date))
+    .map(x=>({date:x.date, sys:nOk(x.sys,60,260), dia:nOk(x.dia,30,160), wt:nOk(x.wt,20,300)}))
+    .filter(x=>x.sys!==''||x.dia!==''||x.wt!=='').slice(-1000);
+  b.soberOn = o.soberOn===true;
+  b.soberStart = parseYmd(o.soberStart) ? o.soberStart : '';
+  b.soberCost = nOk(o.soberCost,0,100000);
+  if(Array.isArray(o.drank)) b.drank = [...new Set(o.drank.filter(d=>parseYmd(d)))].sort();
+  if(b.soberOn && !b.soberStart) b.soberOn=false;
+  return b;
+}
+
+// 筋トレのメニュー：[種目, 回数×セット, ポイント]
+const COURSES = {
+  home:{ name:'家で・道具なし', week:'週2〜3回（1日あけて）。1回15〜20分。', days:[
+    {h:'', items:[
+      ['椅子スクワット','10回×2〜3セット','椅子に座る直前までお尻を下ろして立つ。ひざがつま先より前に出すぎないように'],
+      ['ひざつき腕立て（壁でもOK）','10回×2〜3セット','体をまっすぐに。きつければ壁に手をついて行う'],
+      ['お尻上げ（ブリッジ）','15回×2セット','あお向けでひざを立て、お尻を持ち上げて1秒止める。腰痛の予防に'],
+      ['かかと上げ','20回×2セット','壁や椅子につかまってOK。ふくらはぎは「第二の心臓」'],
+      ['プランク','20〜30秒×2セット','ひじとつま先で体をまっすぐに保つ。息は止めない'],
+      ['片足立ち','左右30秒ずつ','つかまれる場所で。ふらつき・転倒の予防に'],
+    ]}]},
+  gym1:{ name:'ジムで・はじめて', week:'週2回。マシンは軌道が決まっているので、ひとりでも安全に始められます。', days:[
+    {h:'', items:[
+      ['レッグプレス（脚）','10〜12回×3セット','ひざを伸ばしきらない。脚は年齢とともにいちばん衰えやすい場所'],
+      ['チェストプレス（胸）','10〜12回×3セット','肩をすくめず、胸を張って押す'],
+      ['ラットプルダウン（背中）','10〜12回×3セット','胸に向かって引く。反動は使わない'],
+      ['シーテッドロー（背中）','10〜12回×3セット','肩甲骨を寄せるように引く。押す種目と同じくらい引く'],
+      ['プランク（おなか）','30秒×2セット','体をまっすぐ'],
+      ['バイクか早歩き','15〜20分','会話ができるくらいの強さで'],
+    ]}]},
+  gym2:{ name:'ジムで・なれている人', week:'週3回を A→B→C の順に。1日やったら1日休むのが目安です。', days:[
+    {h:'A　押す日', items:[
+      ['ベンチプレス','5回×5セット','肩甲骨を寄せて胸を張る。足で床を踏んで押す。安全バー必須'],
+      ['インクライン・ダンベルプレス','8〜10回×3セット','胸の上のほう'],
+      ['ナローベンチかディップス','8回×3セット','二の腕。押しきる力がつく'],
+      ['フェイスプル','15回×3セット','ロープを顔に向かって引く。肩のけが予防に大切'],
+    ]},
+    {h:'B　脚の日', items:[
+      ['スクワット','8回×3セット','腰を丸めない。深さは痛みのない範囲で'],
+      ['ルーマニアンデッドリフト','8回×3セット','ひざを軽く曲げ、お尻を後ろに引いて下ろす。背中を丸めない'],
+      ['ブルガリアンスクワット','左右10回×2セット','片足を後ろのベンチに乗せてしゃがむ'],
+      ['ファーマーズウォーク','30〜40m×3本','重いダンベルを両手に持って歩く。握力と体幹に'],
+    ]},
+    {h:'C　引く日＋有酸素', items:[
+      ['懸垂かラットプルダウン','8回×3セット','胸を張って引く'],
+      ['ベントオーバーロウかシーテッドロー','10回×3セット','背中で引く'],
+      ['フェイスプル','15回×3セット','毎回の仕上げに'],
+      ['ゆるい有酸素','30分','会話できる強さで。心臓と血管の土台になり、回復も早まる'],
+    ]}]},
+};
+const LIFT_NAMES=['ベンチプレス','スクワット','デッドリフト','ルーマニアンデッドリフト','ショルダープレス','ラットプルダウン','懸垂','チェストプレス','レッグプレス','ダンベルプレス'];
+
+let bodyTab='menu';
+function showBodyTab(t){
+  bodyTab=t;
+  document.querySelectorAll('#bodyTabs button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.bt===t?'true':'false'));
+  document.querySelectorAll('[data-bp]').forEach(s=>s.hidden = s.dataset.bp!==t);
+}
+document.querySelectorAll('#bodyTabs button').forEach(b=>b.onclick=()=>showBodyTab(b.dataset.bt));
+
+// その週（月曜はじまり）に筋トレした日数
+function weekTrained(){
+  const t=parseYmd(todayYmd()), back=(t.getDay()+6)%7; let n=0;
+  for(let k=0;k<=back;k++) if(data.body.trained[addDays(todayYmd(),-k)]) n++;
+  return n;
+}
+function renderCourse(){
+  const B=data.body, c=COURSES[B.course], box=$('courseBox'); box.textContent='';
+  $('courseSel').value=B.course;
+  const w=document.createElement('div'); w.className='note'; w.textContent='📅 '+c.week; box.append(w);
+  for(const day of c.days){
+    if(day.h){ const h=document.createElement('div'); h.style.cssText='font-weight:800;color:var(--main);margin-top:14px'; h.textContent=day.h; box.append(h); }
+    for(const [n,r,p] of day.items){
+      const d=document.createElement('div'); d.className='ex';
+      const top=document.createElement('div'); top.style.cssText='display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap';
+      const a=document.createElement('span'); a.className='n'; a.textContent=n;
+      const b=document.createElement('span'); b.className='r'; b.textContent=r;
+      top.append(a,b);
+      const pp=document.createElement('div'); pp.className='p'; pp.textContent=p;
+      d.append(top,pp); box.append(d);
+    }
+  }
+  if(B.course==='gym2'){
+    const t=document.createElement('details'); t.className='sub'; t.style.marginTop='8px';
+    t.innerHTML='<summary>記録が伸びなくなったら</summary><div style="margin-top:6px">・<b>重さに慣れる</b>：いちばん重い重さで1〜2回を4〜5セット（あと1回できそうで止める）<br>・<b>ヘビーホールド</b>：ラックの安全バーを腕を伸ばした位置のすぐ下に合わせ、ふだんより重いバーを5〜10秒持つだけ<br>・<b>休む週</b>：6週ほど続けたら1週間は重さを6〜7割に落として疲れを抜く<br>・<b>寝不足の日は重い日にしない</b></div>';
+    box.append(t);
+  }
+  // きょうやった
+  const box2=$('trainDone'); box2.textContent='';
+  const on=!!B.trained[todayYmd()];
+  const btn=document.createElement('button'); btn.className='hb'+(on?' on':''); btn.style.marginTop='12px';
+  const mk=document.createElement('span'); mk.className='mark'; mk.textContent='✓';
+  const t=document.createElement('span'); t.className='t'; t.textContent= on ? 'きょうやった（押すと取り消し）' : 'きょうやった';
+  const wk=document.createElement('span'); wk.className='week'; wk.textContent=`今週 ${weekTrained()}回`;
+  btn.append(mk,t,wk);
+  btn.onclick=()=>{ const d=todayYmd(); if(B.trained[d]) delete B.trained[d]; else B.trained[d]=B.course; save(); checkCards(); renderBodyAll(); };
+  box2.append(btn);
+  const total=Object.keys(B.trained).length;
+  if(total){ const s=document.createElement('div'); s.className='sub'; s.textContent=`これまでに ${total}回。`+(weekTrained()>=2?'今週はもう十分です。休むのも大事なメニューです。':''); box2.append(s); }
+}
+$('courseSel').onchange=()=>{ data.body.course=COURSES[$('courseSel').value]?$('courseSel').value:'home'; save(); renderCourse(); };
+
+// 1回だけ挙がりそうな重さの目安（エプリーの式。回数が多いほどずれるので12回まで）
+function e1rm(kg,reps){ return reps===1 ? kg : kg*(1+reps/30); }
+function best1rm(name, list){
+  let m=0; for(const x of (list||data.body.lifts)) if(x.name===name && x.reps<=12) m=Math.max(m, e1rm(x.kg,x.reps));
+  return m;
+}
+function kgTxt(n){ return (Math.round(n*10)/10).toLocaleString('ja-JP')+'kg'; }
+let liftShow='';
+function renderLifts(){
+  const B=data.body, box=$('liftView'); box.textContent='';
+  if(!$('liftDate').value) $('liftDate').value=todayYmd();
+  const names=[...new Set(B.lifts.map(x=>x.name))];
+  const dl=$('liftNames'); dl.textContent='';
+  for(const n of [...new Set(names.concat(LIFT_NAMES))]){ const o=document.createElement('option'); o.value=n; dl.append(o); }
+  if(!B.lifts.length){ const p=document.createElement('div'); p.className='empty'; p.style.marginTop='10px'; p.textContent='まだ記録がありません。いちばん重いセットだけ入れれば十分です。'; box.append(p); return; }
+  if(!names.includes(liftShow)) liftShow = B.lifts.at(-1).name;
+  const seg=document.createElement('div'); seg.className='add'; seg.style.marginTop='12px';
+  for(const n of names){ const b=document.createElement('button'); b.className=n===liftShow?'small':'ghost small'; b.textContent=n; b.onclick=()=>{ liftShow=n; renderLifts(); }; seg.append(b); }
+  box.append(seg);
+  const list=B.lifts.filter(x=>x.name===liftShow);
+  const best=best1rm(liftShow);
+  const hd=document.createElement('div'); hd.style.marginTop='10px';
+  hd.innerHTML='<div class="sub">1回だけ挙がりそうな重さ（自己ベスト）</div>';
+  const bv=document.createElement('div'); bv.className='big'; bv.style.fontSize='36px'; bv.textContent= best>0 ? kgTxt(best) : '—';
+  hd.append(bv); box.append(hd);
+  // 日ごとのいちばん良い記録をグラフに
+  const byDay={}; for(const x of list){ if(x.reps>12) continue; const v=e1rm(x.kg,x.reps); if(!(byDay[x.date]>=v)) byDay[x.date]=v; }
+  const pts=Object.entries(byDay).sort((a,b)=>a[0]<b[0]?-1:1);
+  if(pts.length>=2) box.append(miniChart([{pts, color:'var(--main)'}], [], v=>Math.round(v)+'kg'));
+  const s=document.createElement('div'); s.className='sub'; s.style.marginTop='6px';
+  s.textContent='「重さ×回数」から計算した目安です（12回までの記録で計算）。実際に1回だけの重さに挑むときは、補助の人か安全バーを。';
+  box.append(s);
+  const h=document.createElement('div'); h.style.cssText='font-weight:700;margin-top:12px'; h.textContent='最近の記録'; box.append(h);
+  for(const x of list.slice().reverse().slice(0,8)){
+    const r=document.createElement('div'); r.className='row';
+    const a=document.createElement('span'); a.textContent=jpDate(x.date);
+    const b=document.createElement('b'); b.textContent=`${kgTxt(x.kg)} × ${x.reps}回`+(x.reps<=12?`（目安 ${kgTxt(e1rm(x.kg,x.reps))}）`:'');
+    const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
+    del.onclick=()=>{ if(confirm('この記録をけしますか？')){ B.lifts=B.lifts.filter(y=>y!==x); save(); renderLifts(); } };
+    r.append(a,b,del); box.append(r);
+  }
+}
+$('liftAdd').onclick=()=>{
+  const B=data.body, name=$('liftName').value.trim().slice(0,30), kg=parseFloat($('liftKg').value), reps=Number($('liftReps').value), d=$('liftDate').value;
+  const msg=$('liftMsg'); msg.textContent='';
+  if(!name) return alert('種目を入れてください。');
+  if(!(kg>=0.5 && kg<=500)) return alert('重さを入れてください（kg）。');
+  if(!(Number.isInteger(reps) && reps>=1 && reps<=100)) return alert('回数を入れてください（1〜100回）。');
+  if(!parseYmd(d)) return alert('日付を入れてください。');
+  const before=best1rm(name);
+  B.lifts.push({date:d, name, kg, reps});
+  if(B.lifts.length>1000) B.lifts=B.lifts.slice(-1000);
+  const n=document.createElement('div'); n.className='note'; n.style.marginTop='10px';
+  if(reps<=12 && before>0 && e1rm(kg,reps)>before+1e-9){
+    B.pbs++;
+    n.textContent=`🎉 自己ベスト更新！ ${name}の目安が ${kgTxt(before)} → ${kgTxt(e1rm(kg,reps))} になりました。`;
+  } else if(reps<=12 && before===0){
+    n.textContent=`記録しました。${name}の目安は ${kgTxt(e1rm(kg,reps))} です。これが最初の自己ベストです。`;
+  } else n.textContent='記録しました。';
+  msg.append(n);
+  liftShow=name; $('liftKg').value=''; $('liftReps').value='';
+  save(); checkCards(); renderBodyAll();
+};
+
+// 小さな折れ線グラフ（日付 → 値）。refs は目安の横線
+function miniChart(series, refs, fmt){
+  const NS='http://www.w3.org/2000/svg', W=320, H=160, pl=40, pr=10, pt=10, pb=22;
+  const all=series.flatMap(s=>s.pts);
+  const d0=all.map(p=>p[0]).sort()[0], d1=all.map(p=>p[0]).sort().at(-1);
+  const span=Math.max(1, daysBetween(d0,d1));
+  const ys=all.map(p=>p[1]).concat(refs.map(r=>r.y));
+  let y0=Math.min(...ys), y1=Math.max(...ys); const pad=Math.max(1,(y1-y0)*0.12); y0-=pad; y1+=pad;
+  const X=d=>pl+daysBetween(d0,d)/span*(W-pl-pr), Y=v=>pt+(y1-v)/((y1-y0)||1)*(H-pt-pb);
+  const svg=document.createElementNS(NS,'svg'); svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('class','chart');
+  svg.setAttribute('role','img'); svg.setAttribute('aria-label','記録のグラフ');
+  const el=(tag,attrs,text)=>{ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(text!=null) e.textContent=text; svg.append(e); return e; };
+  for(const r of refs){ el('line',{x1:pl,x2:W-pr,y1:Y(r.y),y2:Y(r.y),stroke:'var(--warn)','stroke-width':1.2,'stroke-dasharray':'4 3'}); el('text',{x:pl-4,y:Y(r.y)+4,'text-anchor':'end'},String(r.y)); }
+  // いちばん上と下の数字（目安の線の数字と重なるときは出さない）
+  const near=v=>refs.some(r=>Math.abs(Y(r.y)-Y(v))<12);
+  if(!near(y1-pad)) el('text',{x:pl-4,y:Y(y1-pad)+4,'text-anchor':'end'},fmt(y1-pad));
+  if(!near(y0+pad)) el('text',{x:pl-4,y:Y(y0+pad)+4,'text-anchor':'end'},fmt(y0+pad));
+  for(const s of series){
+    if(!s.pts.length) continue;
+    const p=s.pts.map(q=>X(q[0]).toFixed(1)+','+Y(q[1]).toFixed(1)).join(' ');
+    if(s.pts.length>1) el('polyline',{points:p,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round'});
+    s.pts.forEach(q=>el('circle',{cx:X(q[0]).toFixed(1),cy:Y(q[1]).toFixed(1),r:3,fill:s.color}));
+  }
+  const md=d=>{ const t=parseYmd(d); return (t.getMonth()+1)+'/'+t.getDate(); };
+  el('text',{x:pl,y:H-6,'text-anchor':'start'},md(d0));
+  if(d1!==d0) el('text',{x:W-pr,y:H-6,'text-anchor':'end'},md(d1));
+  return svg;
+}
+
+// 血圧・体重
+function renderRec(){
+  const B=data.body;
+  if(!$('recDate').value) $('recDate').value=todayYmd();
+  const rec=B.rec.slice().sort((a,b)=>a.date<b.date?-1:1), last=rec.slice(-60);
+  // 血圧
+  const bp=$('bpView'); bp.textContent='';
+  const bps=last.filter(x=>x.sys!==''&&x.dia!=='');
+  if(!bps.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='血圧を記録すると、ここにグラフが出ます。'; bp.append(p); }
+  else{
+    const w7=bps.filter(x=>daysBetween(x.date,todayYmd())<7);
+    if(w7.length){
+      const as=Math.round(w7.reduce((s,x)=>s+x.sys,0)/w7.length), ad=Math.round(w7.reduce((s,x)=>s+x.dia,0)/w7.length);
+      const v=document.createElement('div'); v.className='big'; v.style.fontSize='36px'; v.textContent=`${as} / ${ad}`;
+      const s=document.createElement('div'); s.className='sub'; s.textContent=`この7日の平均（${w7.length}回）。1回の数字より、平均で見るのがコツです。`;
+      bp.append(v,s);
+      if(as>=135||ad>=85){ const n=document.createElement('div'); n.className='note warn'; n.textContent='平均が目安（上135・下85）をこえています。続くようなら、医師に相談してください。'; bp.append(n); }
+    }
+    bp.append(miniChart([{pts:bps.map(x=>[x.date,x.sys]), color:'var(--main)'},{pts:bps.map(x=>[x.date,x.dia]), color:'#c98a2e'}],[{y:135},{y:85}], v=>String(Math.round(v))));
+    const lg=document.createElement('div'); lg.className='legend';
+    lg.innerHTML='<span><i></i>上（収縮期）</span><span><i class="b" style="border-top-style:solid"></i>下（拡張期）</span><span><i class="r"></i>目安の線</span>';
+    bp.append(lg);
+  }
+  // 体重
+  const wv=$('wtView'); wv.textContent='';
+  const ws=last.filter(x=>x.wt!=='');
+  if(!ws.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='体重を記録すると、ここにグラフが出ます。'; wv.append(p); }
+  else{
+    const lastW=ws.at(-1), firstW=ws[0];
+    const v=document.createElement('div'); v.className='big'; v.style.fontSize='36px'; v.textContent=kgTxt(lastW.wt);
+    const s=document.createElement('div'); s.className='sub';
+    const df=lastW.wt-firstW.wt;
+    s.textContent = ws.length>1 ? `${jpDate(firstW.date)}から ${df>=0?'+':'−'}${kgTxt(Math.abs(df))}` : jpDate(lastW.date);
+    wv.append(v,s);
+    if(ws.length>1) wv.append(miniChart([{pts:ws.map(x=>[x.date,x.wt]), color:'var(--main)'}],[], v=>(Math.round(v*10)/10)+''));
+  }
+  // 一覧
+  const box=$('recList'); box.textContent='';
+  if(!rec.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='まだ記録がありません。'; box.append(p); return; }
+  for(const x of rec.slice().reverse().slice(0,14)){
+    const r=document.createElement('div'); r.className='row';
+    const a=document.createElement('span'); a.textContent=jpDate(x.date);
+    const b=document.createElement('b'); b.textContent=[x.sys!==''&&x.dia!==''?`${x.sys}/${x.dia}`:'', x.wt!==''?kgTxt(x.wt):''].filter(Boolean).join('　');
+    const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
+    del.onclick=()=>{ if(confirm(jpDate(x.date)+' の記録をけしますか？')){ B.rec=B.rec.filter(y=>y!==x); save(); renderRec(); } };
+    r.append(a,b,del); box.append(r);
+  }
+}
+$('recAdd').onclick=()=>{
+  const B=data.body, d=$('recDate').value;
+  const g=(id,lo,hi)=>{ const v=$(id).value.trim(); if(v==='') return ''; const n=Number(v); return isFinite(n)&&n>=lo&&n<=hi ? n : NaN; };
+  const sys=g('recSys',60,260), dia=g('recDia',30,160), wt=g('recWt',20,300);
+  if(!parseYmd(d)) return alert('日付を入れてください。');
+  if([sys,dia,wt].some(v=>Number.isNaN(v))) return alert('数字が大きすぎるか小さすぎます。確かめてください。');
+  if((sys==='')!==(dia==='')) return alert('血圧は「上」と「下」の両方を入れてください。');
+  if(sys===''&&wt==='') return alert('血圧か体重を入れてください。');
+  if(sys!=='' && sys<=dia) return alert('「上」は「下」より大きい数字です。入れまちがいがないか確かめてください。');
+  // 同じ日は、入れた項目だけ上書き
+  let r=B.rec.find(x=>x.date===d);
+  if(!r){ r={date:d, sys:'', dia:'', wt:''}; B.rec.push(r); }
+  if(sys!==''){ r.sys=sys; r.dia=dia; } if(wt!=='') r.wt=wt;
+  if(B.rec.length>1000) B.rec=B.rec.slice(-1000);
+  $('recSys').value=''; $('recDia').value=''; $('recWt').value='';
+  $('recMsg').innerHTML=''; const n=document.createElement('div'); n.className='note'; n.textContent=jpDate(d)+' の分を記録しました ✓'; $('recMsg').append(n);
+  save(); checkCards(); renderBodyAll();
+};
+
+// お酒なし：飲んだ日だけ記録し、それ以外の日を「お酒なし」と数える
+function soberInfo(){
+  const B=data.body, t=todayYmd();
+  if(!B.soberOn || !parseYmd(B.soberStart) || B.soberStart>t) return null;
+  const drank=new Set(B.drank.filter(d=>d>=B.soberStart && d<=t));
+  const total=daysBetween(B.soberStart,t)+1-drank.size;
+  let cur=0; for(let d=t; d>=B.soberStart && !drank.has(d); d=addDays(d,-1)) cur++;
+  let best=0, run=0;
+  for(let d=B.soberStart; d<=t; d=addDays(d,1)){ run = drank.has(d)?0:run+1; best=Math.max(best,run); }
+  return {total, cur, best, drankToday:drank.has(t), drankN:drank.size};
+}
+const SOBER_BADGES=[[1,'🌱','1日'],[3,'🌤','3日'],[7,'🍵','1週間'],[14,'🌿','2週間'],[30,'🌕','1か月'],[60,'🏅','2か月'],[100,'🎖','100日'],[180,'🏆','半年'],[365,'👑','1年']];
+function renderSober(){
+  const B=data.body, s=soberInfo();
+  $('soberOff').hidden=!!s; $('soberOnBox').hidden=!s;
+  if(!s){ if(!$('soberStartIn').value) $('soberStartIn').value=todayYmd(); return; }
+  $('soberDays').innerHTML=''; $('soberDays').append(String(s.cur)); const sm=document.createElement('small'); sm.textContent='日'; $('soberDays').append(sm);
+  $('soberDetail').textContent = s.drankToday ? 'きょうは飲んだ日として記録しています。あしたからまた数えます。'
+    : `いま続いている日数です（きょうをふくむ）。${jpDate(B.soberStart)}からの合計は ${s.total}日、いちばん長く続いたのは ${s.best}日。`;
+  const sv=$('soberSaved'); sv.textContent='';
+  if(num(B.soberCost)>0){ const n=document.createElement('div'); n.className='note'; n.textContent=`💴 お酒なしの日が ${s.total}日 で、およそ ${(s.total*num(B.soberCost)).toLocaleString('ja-JP')}円 浮いた計算です。`; sv.append(n); }
+  $('soberDrank').textContent = s.drankToday ? '「きょうは飲んだ」を取り消す' : '🍺 きょうは飲んだ';
+  const bx=$('soberBadges'); bx.textContent='';
+  const g=document.createElement('div'); g.className='badges';
+  for(const [n,em,label] of SOBER_BADGES){ const d=document.createElement('div'); if(s.best>=n) d.className='got'; const b=document.createElement('b'); b.textContent=em; d.append(b, label); g.append(d); }
+  bx.append(g);
+  const nx=SOBER_BADGES.find(([n])=>s.best<n);
+  const p=document.createElement('div'); p.className='sub'; p.style.marginTop='8px';
+  p.textContent = nx ? `つぎのバッジ「${nx[2]}」まで、あと ${nx[0]-s.cur}日（続いている日数で数えます。いちばん長い記録で取ったバッジは消えません）。` : 'すべてのバッジを集めました。';
+  bx.append(p);
+  $('soberStartEdit').value=B.soberStart; $('soberCostEdit').value=B.soberCost;
+  const dl=$('soberDrankList'); dl.textContent='';
+  const lab=document.createElement('div'); lab.className='sub'; lab.textContent='飲んだ日（押し忘れた日は、日付を選んで足せます）'; dl.append(lab);
+  const add=document.createElement('div'); add.className='add';
+  const di=document.createElement('input'); di.type='date'; di.style.flex='1 1 160px';
+  const ab=document.createElement('button'); ab.className='ghost small'; ab.textContent='この日は飲んだ';
+  ab.onclick=()=>{ const d=di.value; if(!parseYmd(d)||d>todayYmd()||d<B.soberStart) return alert('始めた日から今日までの日付を選んでください。'); if(!B.drank.includes(d)){ B.drank.push(d); B.drank.sort(); } save(); renderBodyAll(); };
+  add.append(di,ab); dl.append(add);
+  for(const d of B.drank.filter(d=>d>=B.soberStart).slice().reverse().slice(0,10)){
+    const r=document.createElement('div'); r.className='row';
+    const a=document.createElement('span'); a.textContent=jpDate(d);
+    const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
+    del.onclick=()=>{ B.drank=B.drank.filter(x=>x!==d); save(); checkCards(); renderBodyAll(); };
+    r.append(a,del); dl.append(r);
+  }
+}
+$('soberOn').onclick=()=>{
+  const B=data.body, d=$('soberStartIn').value, c=$('soberCostIn').value.trim();
+  if(!parseYmd(d) || d>todayYmd()) return alert('始めた日を入れてください（今日か、それより前の日）。');
+  B.soberOn=true; B.soberStart=d; B.soberCost = c===''?'':Math.max(0,Math.min(100000,Number(c)||0));
+  save(); checkCards(); renderBodyAll();
+};
+$('soberDrank').onclick=()=>{
+  const B=data.body, t=todayYmd();
+  if(B.drank.includes(t)) B.drank=B.drank.filter(x=>x!==t); else { B.drank.push(t); B.drank.sort(); }
+  save(); renderBodyAll();
+};
+$('soberSaveSet').onclick=()=>{
+  const B=data.body, d=$('soberStartEdit').value, c=$('soberCostEdit').value.trim();
+  if(!parseYmd(d) || d>todayYmd()) return alert('始めた日を入れてください（今日か、それより前の日）。');
+  B.soberStart=d; B.soberCost = c===''?'':Math.max(0,Math.min(100000,Number(c)||0));
+  save(); checkCards(); renderBodyAll();
+};
+$('soberStop').onclick=()=>{
+  if(!confirm('お酒なしの日数を数えるのをやめますか？（取ったごほうびカードは残ります）')) return;
+  const B=data.body; B.soberOn=false; B.soberStart=''; B.drank=[]; save(); renderBodyAll();
+};
+
+// ---------- ごほうびカード ----------
+// 条件を満たすと1枚ずつもらえる。一度もらったカードは消えない（記録を消しても残る）
+function cardStats(){
+  const s=streakInfo(), so=soberInfo();
+  return {
+    days: Object.keys(data.log).filter(d=>(data.log[d]||[]).length).length,
+    best: s.best,
+    tiredDone: Object.keys(data.tired).some(d=>(data.log[d]||[]).length>0),
+    trained: Object.keys(data.body.trained).length,
+    lifted: data.body.lifts.length>0,
+    pbs: data.body.pbs,
+    rec: data.body.rec.length,
+    sober: so ? so.best : 0,
+  };
+}
+const CARDS=[
+  {id:'c1', em:'🌱', t:'はじめの一歩', cond:s=>s.days>=1, hint:'ならし運転を1つ押す',
+   text:'新しい習慣は、小さく始めるほど続きます。1日1つで十分です。'},
+  {id:'c2', em:'🌤', t:'3日つづいた', cond:s=>s.best>=3, hint:'3日つづける',
+   text:'途切れても大丈夫。また始めた日が、新しい1日目です。'},
+  {id:'c3', em:'🚶', t:'1週間つづいた', cond:s=>s.best>=7, hint:'7日つづける',
+   text:'歩くのは、いちばん手軽な運動です。会話ができるくらいの速さで30分が目安です。'},
+  {id:'c4', em:'😴', t:'休むのも練習', cond:s=>s.tiredDone, hint:'おつかれの日に1つできる',
+   text:'疲れた日は、軽いメニューで十分。休むことも、長く続けるための大事な練習です。'},
+  {id:'c5', em:'☀️', t:'できた日 10日', cond:s=>s.days>=10, hint:'できた日を10日に',
+   text:'朝の光を浴びると体内時計が整い、夜ぐっすり眠りやすくなります。'},
+  {id:'c6', em:'🏋️', t:'体を動かした', cond:s=>s.trained>=1||s.lifted, hint:'筋トレの「きょうやった」を押す',
+   text:'筋肉は何歳からでも増えます。特に脚は衰えやすいので、スクワットがおすすめです。'},
+  {id:'c7', em:'🩺', t:'体の記録 7回', cond:s=>s.rec>=7, hint:'血圧か体重を7回記録',
+   text:'血圧は日によって変わります。1回の数字より、1週間の平均で見るのがコツです。'},
+  {id:'c8', em:'🔥', t:'2週間つづいた', cond:s=>s.best>=14, hint:'14日つづける',
+   text:'続けるコツは「いつやるか」を決めること。歯みがきの後など、毎日することにくっつけると忘れません。'},
+  {id:'c9', em:'🏆', t:'自己ベスト', cond:s=>s.pbs>=1, hint:'筋トレで自己ベストを更新',
+   text:'自己ベストは、しっかり休んだ後に出やすいものです。睡眠は最高の回復手段です。'},
+  {id:'c10', em:'🍵', t:'お酒なし 1週間', cond:s=>s.sober>=7, hint:'お酒なしで7日',
+   text:'お酒を控えると、眠りが深くなりやすいと言われています。朝の気分のちがいを感じてみてください。'},
+  {id:'c11', em:'🎖', t:'筋トレ 20回', cond:s=>s.trained>=20, hint:'筋トレを20回',
+   text:'筋トレは週2〜3回で十分効果があります。毎日より、休む日をはさむほうが伸びます。'},
+  {id:'c12', em:'🌕', t:'できた日 30日', cond:s=>s.days>=30, hint:'できた日を30日に',
+   text:'1か月つづいた習慣は、もう暮らしの一部です。理想の1日に、ひとつ足してみませんか。'},
+  {id:'c13', em:'💴', t:'お酒なし 1か月', cond:s=>s.sober>=30, hint:'お酒なしで30日',
+   text:'浮いたお金は、自分へのごほうびや、楽しみの予定に使ってみては。'},
+  {id:'c14', em:'🌈', t:'30日つづいた', cond:s=>s.best>=30, hint:'30日つづける',
+   text:'人と話す・会うことも、体と心の健康に大きく関わります。退職したあとは特に意識して。'},
+  {id:'c15', em:'🍶', t:'お酒なし 100日', cond:s=>s.sober>=100, hint:'お酒なしで100日',
+   text:'健康診断の数字（肝臓・血圧）を、飲んでいたころとくらべてみると、変化が見えるかもしれません。'},
+  {id:'c16', em:'🌟', t:'できた日 100日', cond:s=>s.days>=100, hint:'できた日を100日に',
+   text:'100日。ここまで続けた自分に、拍手を。'},
+];
+function checkCards(){
+  const s=cardStats(); let got='';
+  for(const c of CARDS) if(!data.cards[c.id] && c.cond(s)){ data.cards[c.id]=todayYmd(); got=c.id; }
+  if(got){ data.cardNew=got; save(); }
+}
+function renderCards(){
+  const box=$('cardList'); box.textContent='';
+  const n=CARDS.filter(c=>data.cards[c.id]).length;
+  const p=document.createElement('div'); p.style.cssText='font-weight:700;margin-top:8px'; p.textContent=`${CARDS.length}枚中 ${n}枚`; box.append(p);
+  for(const c of CARDS){
+    const got=!!data.cards[c.id], d=document.createElement('div'); d.className='rcard'+(got?' got':'')+(c.id===data.cardNew?' new':'');
+    const h=document.createElement('div'); h.className='h'; h.textContent= got ? `${c.em} ${c.t}` : `？ ${c.t}`;
+    const t=document.createElement('div'); t.className='c'; t.textContent= got ? c.text : `もらえる条件：${c.hint}`;
+    d.append(h,t);
+    if(got){ const w=document.createElement('div'); w.className='c'; w.style.fontSize='12px'; w.textContent=jpDate(data.cards[c.id])+' にもらいました'; d.append(w); }
+    box.append(d);
+  }
+}
+function renderNewCard(){
+  const box=$('newCard'), c=CARDS.find(x=>x.id===data.cardNew&&data.cards[x.id]);
+  box.hidden=!c; box.textContent='';
+  if(!c) return;
+  const h=document.createElement('h2'); h.textContent='🎁 ごほうびカードが届きました';
+  const t=document.createElement('div'); t.style.cssText='font-weight:800;font-size:20px'; t.textContent=`${c.em} ${c.t}`;
+  const x=document.createElement('div'); x.style.marginTop='4px'; x.textContent=c.text;
+  const b=document.createElement('div'); b.className='add';
+  const ok=document.createElement('button'); ok.className='small'; ok.textContent='うけとる';
+  ok.onclick=()=>{ data.cardNew=''; save(); renderNewCard(); renderCards(); };
+  const all=document.createElement('button'); all.className='ghost small'; all.textContent='カードを全部見る';
+  all.onclick=()=>{ data.cardNew=''; save(); renderNewCard(); renderCards(); jumpTo('day', $('cardList')); };
+  b.append(ok,all); box.append(h,t,x,b);
+}
+
+// ホームの「からだ」カード（使っている機能だけ出す）
+function renderHomeBody(){
+  const B=data.body, box=$('homeBody'), lines=[];
+  const so=soberInfo(); if(so) lines.push(so.drankToday ? '🍵 お酒なし：きょうは飲んだ日' : `🍵 お酒なし ${so.cur}日目`);
+  if(Object.keys(B.trained).length) lines.push(`🏋️ 筋トレ 今週${weekTrained()}回`+(B.trained[todayYmd()]?'（きょうやった）':''));
+  const bp=B.rec.filter(x=>x.sys!=='').sort((a,b)=>a.date<b.date?-1:1).at(-1);
+  if(bp) lines.push(`🩺 血圧 ${bp.sys}/${bp.dia}（${jpDate(bp.date)}）`);
+  box.hidden=!lines.length; box.textContent='';
+  if(!lines.length) return;
+  const h=document.createElement('h2'); h.textContent='からだ'; box.append(h);
+  for(const l of lines){ const d=document.createElement('div'); d.style.cssText='font-weight:600;margin:4px 0'; d.textContent=l; box.append(d); }
+  const go=document.createElement('button'); go.className='ghost small'; go.style.marginTop='6px'; go.textContent='記録する ›';
+  go.onclick=()=>document.querySelector('nav button[data-tab="body"]').click();
+  box.append(go);
+}
+function renderBodyAll(){ renderCourse(); renderLifts(); renderRec(); renderSober(); renderHomeBody(); renderCards(); renderNewCard(); }
+$('tiredBtn').onclick=()=>toggleTired(todayYmd());
+
 // ---------- はじめての人へ ----------
 $('welcomeOk').onclick=()=>{ data.welcomed=true; save(); $('welcome').hidden=true; };
 
@@ -1764,7 +2392,7 @@ $('gearBtn').onclick=()=>document.querySelector('nav button[data-tab="set"]').cl
 function renderWelcome(){ $('welcome').hidden = !!data.welcomed || num(data.money.assets)>0 || num(data.money.living)>0; }
 
 function fillAll(){ fillMoney(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
-function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); }
+function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); }
 
 load(); fillAll(); renderAll();
 // アドレスの最後に ?tab=money などを付けると、そのタブで開く
