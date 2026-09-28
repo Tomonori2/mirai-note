@@ -142,7 +142,16 @@ body.sum{padding-bottom:0}
 .rcard .h{font-weight:700}
 .rcard .c{font-size:14px;color:var(--sub)}
 .rcard.new{outline:2px solid #c98a2e;outline-offset:1px}
-nav button{min-width:0;white-space:nowrap}
+nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
+/* 狭いスマホ（幅320前後）では、メニュー6つの文字が切れないように少し小さくする */
+@media (max-width:360px){ nav button{font-size:min(12px,3.2vw);letter-spacing:-.03em} }
+/* 記録の一覧：右側が長いときは折り返し、✕ボタンを画面の外に押し出さない */
+.row.w{align-items:center}
+.row.w span{white-space:nowrap}
+.row.w b{white-space:normal;text-align:right;flex:1;min-width:0}
+/* まとめ画面：見出しも数字も折り返せるようにする（文字を大きくしても横にはみ出さない） */
+.row.s span{min-width:0;flex:1 1 auto}
+.row.s b{white-space:normal;text-align:right;max-width:55%}
 </style>
 </head>
 <body>
@@ -987,7 +996,7 @@ function renderActuals(){
   const list=(data.actuals||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
   if(!list.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='まだ記録がありません。月に1回、そのときの資産を入れておくと変化が見えます。'; box.append(p); return; }
   for(const r of list){
-    const row=document.createElement('div'); row.className='row';
+    const row=document.createElement('div'); row.className='row w';
     const s=document.createElement('span'); s.textContent=jpDate(r.date);
     const v=document.createElement('b');
     const plan=planAtDate(r.date), diff=plan==null?null:r.amt-plan;
@@ -1753,7 +1762,7 @@ function renderSum(){
   for(const b of md.blocks){
     const h=document.createElement('h3'); h.textContent=b.h; box.append(h);
     for(const [k,v] of b.rows){
-      const r=document.createElement('div'); r.className='row';
+      const r=document.createElement('div'); r.className='row s';
       const s=document.createElement('span'); s.textContent=k;
       const w=document.createElement('b'); w.textContent=v;
       if(b.big!=null && k.startsWith('余白')) w.className=b.big>=0?'plus':'minus';
@@ -2127,7 +2136,7 @@ function renderLifts(){
   box.append(s);
   const h=document.createElement('div'); h.style.cssText='font-weight:700;margin-top:12px'; h.textContent='最近の記録'; box.append(h);
   for(const x of list.slice().reverse().slice(0,8)){
-    const r=document.createElement('div'); r.className='row';
+    const r=document.createElement('div'); r.className='row w';
     const a=document.createElement('span'); a.textContent=jpDate(x.date);
     const b=document.createElement('b'); b.textContent=`${kgTxt(x.kg)} × ${x.reps}回`+(x.reps<=12?`（目安 ${kgTxt(e1rm(x.kg,x.reps))}）`:'');
     const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
@@ -2236,7 +2245,7 @@ function renderRec(){
   const box=$('recList'); box.textContent='';
   if(!rec.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='まだ記録がありません。'; box.append(p); return; }
   for(const x of rec.slice().reverse().slice(0,14)){
-    const r=document.createElement('div'); r.className='row';
+    const r=document.createElement('div'); r.className='row w';
     const a=document.createElement('span'); a.textContent=jpDate(x.date);
     const b=document.createElement('b'); b.textContent=recText(x);
     const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
@@ -2326,7 +2335,7 @@ function renderSober(){
   ab.onclick=()=>{ const d=di.value; if(!parseYmd(d)||d>todayYmd()||d<B.soberStart) return alert('始めた日から今日までの日付を選んでください。'); if(!B.drank.includes(d)){ B.drank.push(d); B.drank.sort(); } save(); renderBodyAll(); };
   add.append(di,ab); dl.append(add);
   for(const d of B.drank.filter(d=>d>=B.soberStart).slice().reverse().slice(0,10)){
-    const r=document.createElement('div'); r.className='row';
+    const r=document.createElement('div'); r.className='row w';
     const a=document.createElement('span'); a.textContent=jpDate(d);
     const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
     del.onclick=()=>{ B.drank=B.drank.filter(x=>x!==d); save(); checkCards(); renderBodyAll(); };
