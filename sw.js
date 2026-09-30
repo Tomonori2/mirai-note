@@ -1,6 +1,6 @@
 // 画面の部品だけを手元に置き、電波がなくても開けるようにする
-const CACHE = 'mirai-note-v4.2';
-const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'mirai-note-v4.3';
+const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
