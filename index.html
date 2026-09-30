@@ -98,6 +98,16 @@ section{display:none}section.on{display:block}
 .cal div.on{color:var(--onMain);font-weight:700}
 .cal .head{background:none;font-size:12px;aspect-ratio:auto}
 .cal .today{outline:2px solid var(--main);outline-offset:1px}
+/* お酒のカレンダー：日付の下に 🍵/🍺 */
+.scal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.scal button{background:var(--line);color:var(--sub);border-radius:8px;padding:3px 0 4px;min-width:0;font-size:11px;font-weight:600;line-height:1.2;display:flex;flex-direction:column;align-items:center}
+.scal button i{font-style:normal;font-size:clamp(11px,4.2vw,18px);height:22px;line-height:22px}  /* 狭い画面・大きい文字でも枠に収まるように */
+.scal button{overflow:hidden}
+.scal button.no{background:var(--main-soft);color:var(--ink)}
+.scal button.yes{background:var(--warn-soft);color:var(--ink)}
+.scal button.today{outline:2px solid var(--main);outline-offset:1px}
+.scal button:disabled{opacity:.35;cursor:default}
+.scal .head{font-size:12px;color:var(--sub);text-align:center}
 .board{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .board span{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--card)}
 .board span.done{background:var(--main);border-color:var(--main);color:var(--onMain)}
@@ -179,7 +189,8 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <h2>✨ 新しくなりました</h2>
     <div>名前が「<b>未来ノート</b>」になり、<b>からだ</b>の記録ができるようになりました。</div>
     <ul style="margin:8px 0;padding-left:20px">
-      <li><b>💪からだ</b>タブ：筋トレのメニュー（家・ジム）、血圧（朝・夜・脈拍）と体重のグラフ、お酒なしの日数</li>
+      <li><b>💪からだ</b>タブ：筋トレのメニュー（家・ジム）、血圧（朝・夜・脈拍）と体重のグラフ</li>
+      <li><b>🍵お酒なしの連続日数</b>：毎日「飲まなかった／飲んだ」を1タップ。カレンダーで月の様子と、飲みやすい曜日が分かります</li>
       <li><b>病院に見せる記録</b>：血圧の4週間ぶんを1枚の画像・印刷に</li>
       <li><b>😴おつかれの日</b>：夜勤明けや寝不足の日は、軽いメニューに切りかえても連続日数がつながります</li>
       <li><b>🎁ごほうびカード</b>：続けた日数の節目で、1枚ずつ届きます</li>
@@ -509,10 +520,20 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
         <div class="big" id="soberDays">–</div>
         <div class="sub" id="soberDetail"></div>
         <div id="soberSaved"></div>
-        <div class="add">
-          <button class="ghost" id="soberDrank">🍺 きょうは飲んだ</button>
+        <div class="add" id="soberToday"></div>
+        <div id="soberMsg"></div>
+        <div class="sub" style="margin-top:6px">押し忘れた日は「飲まなかった」として数えるので、連続日数は途切れません。飲んだ日も、責めなくて大丈夫です。また次の日から数えましょう。</div>
+      </div>
+      <div class="card">
+        <h2>お酒のカレンダー</h2>
+        <div class="sub">🍵＝飲まなかった　🍺＝飲んだ　空白＝まだ記録していない。日付を押すと「🍵 → 🍺 → 空白」の順に切りかわります（押し忘れた日の直し用）。</div>
+        <div class="add" style="align-items:center;justify-content:space-between;margin-top:8px">
+          <button class="ghost small" id="scalPrev" aria-label="前の月">‹ 前の月</button>
+          <b id="scalTitle"></b>
+          <button class="ghost small" id="scalNext" aria-label="次の月">次の月 ›</button>
         </div>
-        <div class="sub" style="margin-top:6px">飲んだ日も、責めなくて大丈夫です。記録しておくと「どんな日に飲みたくなるか」が見えてきます。また次の日から数えましょう。</div>
+        <div id="scal"></div>
+        <div id="scalStats"></div>
       </div>
       <div class="card">
         <h2>節目のバッジ</h2>
@@ -532,7 +553,6 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
         <label class="f">始めた日</label><input type="date" id="soberStartEdit">
         <label class="f">お酒に使っていた額（1日あたり）</label><div class="unit"><input type="number" inputmode="numeric" id="soberCostEdit"><span>円/日</span></div>
         <div class="add"><button class="small" id="soberSaveSet">保存する</button> <button class="ghost small" id="soberStop">数えるのをやめる</button></div>
-        <div id="soberDrankList" style="margin-top:10px"></div>
       </div>
     </div>
   </div>
@@ -632,7 +652,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v4.3';
+const VERSION = 'v4.4';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -695,7 +715,8 @@ function blankBody(){
     lifts: [],        // 重さと回数 [{date, name, kg, reps}]
     pbs: 0,           // 自己ベストを更新した回数（カード用）
     rec: [],          // 血圧・体重 [{date, sys, dia, wt}]
-    soberOn: false, soberStart: '', soberCost: '', drank: [] };  // お酒なし（飲んだ日だけ記録）
+    soberOn: false, soberStart: '', soberCost: '', drank: [],  // お酒なし（飲んだ日）
+    soberOk: [] };    // 「飲まなかった」と押した日（押していない日も、連続日数では飲まなかった扱い）
 }
 // おつかれの日（夜勤明け・寝不足の日）の軽いメニュー。番号はマイナスにして「理想の1日」と重ならないようにする
 const EASY_DAY = [
@@ -2026,6 +2047,8 @@ function cleanBody(o){
   b.soberStart = parseYmd(o.soberStart) ? o.soberStart : '';
   b.soberCost = nOk(o.soberCost,0,100000);
   if(Array.isArray(o.drank)) b.drank = [...new Set(o.drank.filter(d=>parseYmd(d)))].sort();
+  // 同じ日が両方に入っていたら「飲んだ」を優先する
+  if(Array.isArray(o.soberOk)) b.soberOk = [...new Set(o.soberOk.filter(d=>parseYmd(d) && !b.drank.includes(d)))].sort();
   if(b.soberOn && !b.soberStart) b.soberOn=false;
   return b;
 }
@@ -2357,7 +2380,14 @@ function renderSober(){
     : `いま続いている日数です（きょうをふくむ）。${jpDate(B.soberStart)}からの合計は ${s.total}日、いちばん長く続いたのは ${s.best}日。`;
   const sv=$('soberSaved'); sv.textContent='';
   if(num(B.soberCost)>0){ const n=document.createElement('div'); n.className='note'; n.textContent=`💴 お酒なしの日が ${s.total}日 で、およそ ${(s.total*num(B.soberCost)).toLocaleString('ja-JP')}円 浮いた計算です。`; sv.append(n); }
-  $('soberDrank').textContent = s.drankToday ? '「きょうは飲んだ」を取り消す' : '🍺 きょうは飲んだ';
+  // きょうの記録：飲まなかった／飲んだ
+  const tb=$('soberToday'); tb.textContent='';
+  const st=soberState(todayYmd());
+  const mk=(label,val)=>{ const b=document.createElement('button'); const on=st===val; b.className=on?'':'ghost'; b.style.flex='1';
+    b.setAttribute('aria-pressed',on?'true':'false'); b.textContent=(on?'✓ ':'')+label; b.onclick=()=>setSober(todayYmd(), on?'':val); tb.append(b); };
+  mk('🍵 きょうは飲まなかった','no'); mk('🍺 きょうは飲んだ','yes');
+  renderSoberMsg($('soberMsg'));
+  renderSoberCal();
   const bx=$('soberBadges'); bx.textContent='';
   const g=document.createElement('div'); g.className='badges';
   for(const [n,em,label] of SOBER_BADGES){ const d=document.createElement('div'); if(s.best>=n) d.className='got'; const b=document.createElement('b'); b.textContent=em; d.append(b, label); g.append(d); }
@@ -2367,33 +2397,73 @@ function renderSober(){
   p.textContent = nx ? `つぎのバッジ「${nx[2]}」まで、あと ${nx[0]-s.cur}日（続いている日数で数えます。いちばん長い記録で取ったバッジは消えません）。` : 'すべてのバッジを集めました。';
   bx.append(p);
   $('soberStartEdit').value=B.soberStart; $('soberCostEdit').value=B.soberCost;
-  const dl=$('soberDrankList'); dl.textContent='';
-  const lab=document.createElement('div'); lab.className='sub'; lab.textContent='飲んだ日（押し忘れた日は、日付を選んで足せます）'; dl.append(lab);
-  const add=document.createElement('div'); add.className='add';
-  const di=document.createElement('input'); di.type='date'; di.style.flex='1 1 160px';
-  const ab=document.createElement('button'); ab.className='ghost small'; ab.textContent='この日は飲んだ';
-  ab.onclick=()=>{ const d=di.value; if(!parseYmd(d)||d>todayYmd()||d<B.soberStart) return alert('始めた日から今日までの日付を選んでください。'); if(!B.drank.includes(d)){ B.drank.push(d); B.drank.sort(); } save(); renderBodyAll(); };
-  add.append(di,ab); dl.append(add);
-  for(const d of B.drank.filter(d=>d>=B.soberStart).slice().reverse().slice(0,10)){
-    const r=document.createElement('div'); r.className='row w';
-    const a=document.createElement('span'); a.textContent=jpDate(d);
-    const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
-    del.onclick=()=>{ B.drank=B.drank.filter(x=>x!==d); save(); checkCards(); renderBodyAll(); };
-    r.append(a,del); dl.append(r);
+}
+// その日の記録：'no'＝飲まなかった（押した）、'yes'＝飲んだ、''＝まだ記録していない
+function soberState(d){ const B=data.body; return B.drank.includes(d) ? 'yes' : B.soberOk.includes(d) ? 'no' : ''; }
+function setSober(d, v){
+  const B=data.body;
+  B.drank=B.drank.filter(x=>x!==d); B.soberOk=B.soberOk.filter(x=>x!==d);
+  if(v==='yes'){ B.drank.push(d); B.drank.sort(); }
+  if(v==='no'){ B.soberOk.push(d); B.soberOk.sort(); }
+  save(); checkCards(); renderBodyAll();
+}
+// きょう押したあとのひとこと（ホームとお酒の画面で同じものを出す）
+function renderSoberMsg(box){
+  box.textContent=''; const s=soberInfo(), st=soberState(todayYmd());
+  if(!s || !st) return;
+  const n=document.createElement('div'); n.className='note'; n.style.marginTop='8px';
+  if(st==='no'){
+    const nx=SOBER_BADGES.find(([k])=>s.cur<k);
+    n.textContent=`🍵 お酒なし 連続${s.cur}日目！`+(s.cur>=s.best&&s.cur>1?' いちばん長い記録を更新中です。':'')+(nx?` 「${nx[2]}」のバッジまで あと${nx[0]-s.cur}日。`:'');
+  } else n.textContent='🍺 記録しました。あしたから、また1日目です。';
+  box.append(n);
+}
+// お酒のカレンダー（ひと月ぶん・月曜はじまりではなく、ほかのカレンダーと同じ日曜はじまり）
+let scalMonth='';
+function renderSoberCal(){
+  const B=data.body, t=todayYmd();
+  if(!/^\d{4}-\d{2}$/.test(scalMonth)) scalMonth=t.slice(0,7);
+  const [y,m]=scalMonth.split('-').map(Number), first=new Date(y,m-1,1), days=new Date(y,m,0).getDate();
+  $('scalTitle').textContent=`${y}年${m}月`;
+  $('scalNext').disabled = scalMonth>=t.slice(0,7);
+  $('scalPrev').disabled = !!B.soberStart && scalMonth<=B.soberStart.slice(0,7);
+  const g=document.createElement('div'); g.className='scal';
+  for(const w of '日月火水木金土'){ const h=document.createElement('div'); h.className='head'; h.textContent=w; g.append(h); }
+  for(let i=0;i<first.getDay();i++) g.append(document.createElement('div'));
+  let no=0, yes=0, blank=0;
+  for(let dd=1; dd<=days; dd++){
+    const d=ymd(new Date(y,m-1,dd)), st=soberState(d), out=d>t || d<B.soberStart;
+    const b=document.createElement('button'); b.className=st; if(d===t) b.classList.add('today');
+    const em=document.createElement('i'); em.textContent= st==='no'?'🍵':st==='yes'?'🍺':'';
+    b.append(String(dd), em);
+    b.disabled=out;
+    b.setAttribute('aria-label', jpDate(d)+'：'+(st==='no'?'飲まなかった':st==='yes'?'飲んだ':'記録なし'));
+    if(!out){ b.onclick=()=>setSober(d, st===''?'no':st==='no'?'yes':''); if(st==='yes') yes++; else if(st==='no') no++; else blank++; }
+    g.append(b);
+  }
+  const box=$('scal'); box.textContent=''; box.append(g);
+  const s=$('scalStats'); s.textContent='';
+  const p=document.createElement('div'); p.className='sub'; p.style.marginTop='8px';
+  p.textContent=`この月：🍵 ${no}日　🍺 ${yes}日`+(blank?`　空白 ${blank}日（連続日数では飲まなかった扱い）`:'');
+  s.append(p);
+  // 飲んだ日が多い曜日（直近90日で3回以上飲んだとき）
+  const from=addDays(t,-89), cnt=[0,0,0,0,0,0,0];
+  const recent=B.drank.filter(d=>d>=from && d<=t && d>=B.soberStart); recent.forEach(d=>cnt[parseYmd(d).getDay()]++);
+  if(recent.length>=3){
+    const mx=Math.max(...cnt), top=[...'日月火水木金土'].filter((_,i)=>cnt[i]===mx);
+    const q=document.createElement('div'); q.className='note'; q.style.marginTop='8px';
+    q.textContent=`📊 この3か月で飲んだのは ${recent.length}日。多い曜日は「${top.join('・')}曜日」です。その日の過ごし方を先に決めておくと、控えやすくなります。`;
+    s.append(q);
   }
 }
+$('scalPrev').onclick=()=>{ const [y,m]=scalMonth.split('-').map(Number); scalMonth=ymd(new Date(y,m-2,1)).slice(0,7); renderSoberCal(); };
+$('scalNext').onclick=()=>{ const [y,m]=scalMonth.split('-').map(Number); scalMonth=ymd(new Date(y,m,1)).slice(0,7); renderSoberCal(); };
 $('soberOn').onclick=()=>{
   const B=data.body, d=$('soberStartIn').value, c=$('soberCostIn').value.trim();
   if(!parseYmd(d) || d>todayYmd()) return alert('始めた日を入れてください（今日か、それより前の日）。');
   B.soberOn=true; B.soberStart=d; B.soberCost = c===''?'':Math.max(0,Math.min(100000,Number(c)||0));
   save(); checkCards(); renderBodyAll();
 };
-function toggleDrank(){
-  const B=data.body, t=todayYmd();
-  if(B.drank.includes(t)) B.drank=B.drank.filter(x=>x!==t); else { B.drank.push(t); B.drank.sort(); }
-  save(); renderBodyAll();
-}
-$('soberDrank').onclick=toggleDrank;
 $('soberSaveSet').onclick=()=>{
   const B=data.body, d=$('soberStartEdit').value, c=$('soberCostEdit').value.trim();
   if(!parseYmd(d) || d>todayYmd()) return alert('始めた日を入れてください（今日か、それより前の日）。');
@@ -2402,7 +2472,7 @@ $('soberSaveSet').onclick=()=>{
 };
 $('soberStop').onclick=()=>{
   if(!confirm('お酒なしの日数を数えるのをやめますか？（取ったごほうびカードは残ります）')) return;
-  const B=data.body; B.soberOn=false; B.soberStart=''; B.drank=[]; save(); renderBodyAll();
+  const B=data.body; B.soberOn=false; B.soberStart=''; B.drank=[]; B.soberOk=[]; save(); renderBodyAll();
 };
 
 // ---------- ごほうびカード ----------
@@ -2511,9 +2581,12 @@ function renderHomeBody(){
   const t=todayYmd(), row=document.createElement('div'); row.className='add';
   const q=(label,on,fn)=>{ const b=document.createElement('button'); b.className=on?'small':'ghost small'; b.setAttribute('aria-pressed',on?'true':'false'); b.textContent=label; b.onclick=fn; row.append(b); };
   q(B.trained[t]?'✓ 筋トレやった':'🏋️ 筋トレやった', !!B.trained[t], ()=>toggleTrained(t));
-  if(so) q(so.drankToday?'✓ きょうは飲んだ':'🍺 きょうは飲んだ', so.drankToday, toggleDrank);
+  if(so){ const st=soberState(t);
+    q(st==='no'?'✓ 飲まなかった':'🍵 飲まなかった', st==='no', ()=>setSober(t, st==='no'?'':'no'));
+    q(st==='yes'?'✓ 飲んだ':'🍺 飲んだ', st==='yes', ()=>setSober(t, st==='yes'?'':'yes')); }
   q('🩺 血圧・体重 ›', false, ()=>{ document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('rec'); $('recSys').scrollIntoView({block:'center'}); $('recSys').focus({preventScroll:true}); });
   box.append(row);
+  if(so){ const m=document.createElement('div'); renderSoberMsg(m); box.append(m); }
 }
 function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderHomeBody(); renderCards(); renderNewCard(); }
 $('tiredBtn').onclick=()=>toggleTired(todayYmd());
