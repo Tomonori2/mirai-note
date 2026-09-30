@@ -92,7 +92,7 @@ section{display:none}section.on{display:block}
 .week7 i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
 .week7 i.d{background:var(--main)}
 .streak{display:flex;align-items:baseline;gap:8px;margin:8px 0 2px}
-.streak b{font-size:28px;color:var(--main);font-weight:800}
+.streak b{font-size:28px;color:var(--main);font-weight:800;white-space:nowrap;flex:none}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
 .cal div{aspect-ratio:1;border-radius:8px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--sub)}
 .cal div.on{color:var(--onMain);font-weight:700}
@@ -508,10 +508,13 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
         <select id="recSlot" style="flex:0 1 110px"><option value="am">朝</option><option value="pm">夜</option></select>
       </div>
       <div class="add">
-        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="recSys" placeholder="上"><span>上</span></div>
-        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="recDia" placeholder="下"><span>下</span></div>
-        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="recPulse" placeholder="脈拍"><span>回/分</span></div>
-        <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="decimal" id="recWt" placeholder="体重"><span>kg</span></div>
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="numeric" id="recSys" placeholder="例：128"><span>上</span></div>
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="numeric" id="recDia" placeholder="例：82"><span>下</span></div>
+      </div>
+      <!-- 1行に4つ並べると欄が狭くなりすぎるので、2行に分ける -->
+      <div class="add">
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="numeric" id="recPulse" placeholder="脈拍"><span>回/分</span></div>
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="decimal" id="recWt" placeholder="体重"><span>kg</span></div>
       </div>
       <div class="add"><button id="recAdd">記録する</button></div>
       <div id="recMsg"></div>
@@ -2497,7 +2500,7 @@ function renderSober(){
   const st=soberState(todayYmd());
   const mk=(label,val)=>{ const b=document.createElement('button'); const on=st===val; b.className=on?'':'ghost'; b.style.flex='1';
     b.setAttribute('aria-pressed',on?'true':'false'); b.textContent=(on?'✓ ':'')+label; b.onclick=()=>setSober(todayYmd(), on?'':val); tb.append(b); };
-  mk('🍵 きょうは飲まなかった','no'); mk('🍺 きょうは飲んだ','yes');
+  mk('🍵 飲まなかった','no'); mk('🍺 飲んだ','yes');   // 短くして2行に割れないように（見出しで「きょう」と分かる）
   renderSoberMsg($('soberMsg'));
   renderSoberCal();
   const bx=$('soberBadges'); bx.textContent='';
