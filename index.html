@@ -108,6 +108,15 @@ section{display:none}section.on{display:block}
 .scal button.today{outline:2px solid var(--main);outline-offset:1px}
 .scal button:disabled{opacity:.35;cursor:default}
 .scal .head{font-size:12px;color:var(--sub);text-align:center}
+/* ひとこと日記の気分 */
+.mood{display:flex;gap:6px;margin:4px 0 6px}
+.mood button{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);color:var(--sub);padding:6px 0 4px;font-size:11px;font-weight:600;line-height:1.3;display:flex;flex-direction:column;align-items:center}
+.mood button i{font-style:normal;font-size:clamp(18px,6vw,26px);line-height:1.2}
+.mood button[aria-pressed="true"]{background:var(--main-soft);border-color:var(--main);color:var(--ink)}
+.dent{padding:8px 0;border-bottom:1px dashed var(--line)}
+.dent:last-child{border-bottom:0}
+.dent .d{font-size:13px;color:var(--sub);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dent .t{word-break:break-word;margin-top:2px}
 .board{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .board span{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--card)}
 .board span.done{background:var(--main);border-color:var(--main);color:var(--onMain)}
@@ -193,6 +202,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <li><b>🍵お酒なしの連続日数</b>：毎日「飲まなかった／飲んだ」を1タップ。カレンダーで月の様子と、飲みやすい曜日が分かります</li>
       <li><b>病院に見せる記録</b>：血圧の4週間ぶんを1枚の画像・印刷に</li>
       <li><b>😴おつかれの日</b>：夜勤明けや寝不足の日は、軽いメニューに切りかえても連続日数がつながります</li>
+      <li><b>📔ひとこと日記</b>：ホームで気分の絵文字と1行だけ。飲まなかった日と飲んだ日の気分もくらべられます</li>
       <li><b>🎁ごほうびカード</b>：続けた日数の節目で、1枚ずつ届きます</li>
     </ul>
     <div class="sub">これまでの数字や記録は、そのまま残っています。</div>
@@ -227,6 +237,15 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <button class="ghost small" id="tiredBtn" style="margin-top:8px"></button>
     <div id="habitList"></div>
     <div id="habitFoot"></div>
+  </div>
+  <div class="card" id="diaryCard">
+    <h2>きょうのひとこと</h2>
+    <div class="mood" id="moodPick"></div>
+    <div class="add">
+      <input type="text" id="diaryText" maxlength="200" placeholder="例：朝の散歩が気持ちよかった" style="flex:1 1 200px">
+      <button id="diarySave">保存</button>
+    </div>
+    <div class="sub" id="diaryMsg"></div>
   </div>
   <div class="card" id="newCard" hidden></div>
   <div class="card" id="homeBody" hidden></div>
@@ -418,6 +437,12 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <div id="dayStats"></div>
   </div>
   <div class="card">
+    <h2>📔 ひとこと日記</h2>
+    <div class="sub">ホームの「きょうのひとこと」で書いたものです。その日の記録（🍵🍺お酒・🏋️筋トレ・🩺血圧・😴おつかれの日）も横に並べます。日記はこの端末の中だけに保存し、AI相談にも送りません。</div>
+    <div id="diaryMood"></div>
+    <div id="diaryList"></div>
+  </div>
+  <div class="card">
     <h2>🎁 ごほうびカード</h2>
     <div class="sub">続けた日数などの節目で、カードが1枚ずつ増えます。カードには、体と暮らしのひとことが書いてあります。まだのカードは「？」になっています。</div>
     <div id="cardList"></div>
@@ -591,7 +616,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   <div class="card">
     <h2>データの控え（バックアップ）</h2>
     <div class="sub">このアプリの記録はスマホの中だけにあります。ブラウザの掃除や機種変更で消えるので、ときどき控えを取ってください。</div>
-    <div class="note warn">🔒 控えにはお金の数字と、ならし運転・からだ（血圧・体重など）の記録が入っています。人に送ったり、公開の場所に置いたりしないでください。</div>
+    <div class="note warn">🔒 控えにはお金の数字と、ならし運転・からだ（血圧・体重など）の記録、<b>ひとこと日記の中身</b>が入っています。人に送ったり、公開の場所に置いたりしないでください。</div>
     <div class="add">
       <button id="bkFile">ファイルに保存</button>
       <button class="ghost" id="bkCopy">文字をコピー</button>
@@ -652,7 +677,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v4.4';
+const VERSION = 'v4.5';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -703,6 +728,7 @@ function blank(){
     tired: {},        // おつかれの日 {'2026-09-28':true}（軽いメニューに切りかえた日）
     cards: {},        // もらったごほうびカード {カードの番号:'もらった日'}
     cardNew: '',      // ホームでお知らせする、新しいカードの番号
+    diary: {},        // ひとこと日記 {'2026-09-30':{m:気分1〜5, t:'文'}}
     body: blankBody(),
     seenNews: NEWS_ID,   // はじめての人には「新しくなりました」を出さない
     lastBackup: '' };
@@ -739,7 +765,7 @@ function load(){
   if(Array.isArray(data.day) && data.day.some(x=>typeof x==='string'))
     data.day = data.day.map((x,i)=> typeof x==='string' ? {id:i+1, text:x} : x);
   if(!data.log || typeof data.log!=='object' || Array.isArray(data.log)) data.log={};
-  for(const k of ['tired','cards']) if(!data[k] || typeof data[k]!=='object' || Array.isArray(data[k])) data[k]={};
+  for(const k of ['tired','cards','diary']) if(!data[k] || typeof data[k]!=='object' || Array.isArray(data[k])) data[k]={};
   data.body = cleanBody(data.body);
   const usedIds=[...data.day.map(x=>x.id), ...Object.values(data.log).flat()].filter(Number.isInteger);
   if(!Number.isInteger(data.nextDayId) || data.nextDayId<=Math.max(0,...usedIds)) data.nextDayId=Math.max(0,...usedIds)+1;
@@ -1311,6 +1337,17 @@ function renderDayEdit(){
     };
     card.append(b);
   }
+  // その日のひとこと日記（読み返す・あとから書く）
+  const de=data.diary[d]||{m:0,t:''};
+  const dh=document.createElement('div'); dh.style.cssText='font-weight:700;margin-top:10px'; dh.textContent='📔 この日のひとこと';
+  const mp=document.createElement('div'); mp.className='mood';
+  const di=document.createElement('input'); di.type='text'; di.maxLength=200; di.value=de.t; di.placeholder='この日のことを1行で';
+  let dm=de.m;
+  const paint=()=>moodButtons(mp, dm, i=>{ dm=i; paint(); });
+  paint();
+  const ds=document.createElement('button'); ds.className='small'; ds.textContent='日記を保存'; ds.style.marginTop='6px';
+  ds.onclick=()=>{ saveDiary(d, dm, di.value); renderDayEdit(); };
+  card.append(dh, mp, di, ds);
   const close=document.createElement('button'); close.className='ghost small'; close.style.marginTop='6px'; close.textContent='閉じる';
   close.onclick=()=>{ box.dataset.day=''; renderDayEdit(); };
   card.append(close);
@@ -1357,7 +1394,7 @@ function renderHabit(){
 // 記録がたまってきたら控えをうながす（ならし運転・からだの記録をあわせて数える）
 function backupNag(){
   const B=data.body;
-  const n=Object.keys(data.log).length + B.rec.length + B.lifts.length + Object.keys(B.trained).length;
+  const n=Object.keys(data.log).length + B.rec.length + B.lifts.length + Object.keys(B.trained).length + Object.keys(data.diary).length;
   if(n<7 || (data.lastBackup && daysBetween(data.lastBackup, todayYmd())<=30)) return null;
   const w=document.createElement('div'); w.className='note warn'; w.style.marginTop='8px';
   w.textContent=`🔒 記録が ${n}件 たまりました。スマホの掃除や機種変更で消えると戻せないので、右上の「⚙設定」→「データの控え」で控えを取っておきましょう。`;
@@ -1566,7 +1603,7 @@ function applyBackup(text){
     actuals: Array.isArray(d.actuals)
       ? d.actuals.filter(x=>x && parseYmd(x.date) && isFinite(Number(x.amt))).map(x=>({date:x.date, amt:Number(x.amt)})).slice(-120)
       : [],
-    tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID,
+    tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID, diary: cleanDiary(d.diary),
     body: cleanBody(d.body) };
   // おつかれの日・ごほうびカード：日付の形と、あるカードの番号だけを通す
   if(d.tired && typeof d.tired==='object') for(const k of Object.keys(d.tired)) if(parseYmd(k) && d.tired[k]===true) data.tired[k]=true;
@@ -2028,6 +2065,81 @@ $('wipeAll').onclick=()=>{
   document.querySelector('nav button[data-tab="home"]').click(); window.scrollTo(0,0);
 };
 
+// ---------- ひとこと日記 ----------
+const MOODS=[null,['😢','つらい'],['😔','いまいち'],['😐','ふつう'],['😊','いい'],['😄','とてもいい']];  // 番号1〜5
+let moodSel=0, moodDay='';   // いま選んでいる気分と、その日付（日をまたいだら選び直し）
+function cleanDiary(o){
+  const out={};
+  if(o && typeof o==='object' && !Array.isArray(o))
+    for(const [d,v] of Object.entries(o)){
+      if(!parseYmd(d) || !v || typeof v!=='object') continue;
+      const m=Number.isInteger(v.m)&&v.m>=1&&v.m<=5 ? v.m : 0, t=typeof v.t==='string' ? v.t.trim().slice(0,200) : '';
+      if(m||t) out[d]={m,t};
+    }
+  return out;
+}
+function saveDiary(d, m, t){
+  t=String(t||'').trim().slice(0,200);
+  if(m||t) data.diary[d]={m, t}; else delete data.diary[d];
+  save(); checkCards(); renderDiary(); renderCards(); renderNewCard(); renderHabit();
+}
+// その日のほかの記録を短く並べる（日記の横に出す）
+function dayTags(d){
+  const B=data.body, L=[];
+  const st=soberState(d); if(st==='no') L.push('🍵飲まなかった'); else if(st==='yes') L.push('🍺飲んだ');
+  if(B.trained[d]) L.push('🏋️筋トレ');
+  const r=B.rec.find(x=>x.date===d); if(r && hasBp(r)){ const b=bpReadings(r)[0]; L.push(`🩺${b.sys}/${b.dia}`); }
+  if(data.tired[d]) L.push('😴おつかれの日');
+  const n=(data.log[d]||[]).length; if(n) L.push(`✓ならし${n}`);
+  return L;
+}
+function moodButtons(box, cur, onPick){
+  box.textContent='';
+  for(let i=5;i>=1;i--){
+    const b=document.createElement('button'); b.setAttribute('aria-pressed', cur===i?'true':'false'); b.setAttribute('aria-label','気分：'+MOODS[i][1]);
+    const e=document.createElement('i'); e.textContent=MOODS[i][0]; b.append(e, MOODS[i][1]);
+    b.onclick=()=>onPick(cur===i?0:i);   // もう一度押すと外す
+    box.append(b);
+  }
+}
+function renderDiary(){
+  const t=todayYmd(), cur=data.diary[t];
+  // ホーム：きょうのひとこと
+  if(document.activeElement!==$('diaryText')) $('diaryText').value = cur ? cur.t : '';
+  if(moodDay!==t){ moodDay=t; moodSel = cur ? cur.m : 0; }
+  moodButtons($('moodPick'), moodSel, i=>{ moodSel=i; saveDiary(t, i, $('diaryText').value); });
+  $('diaryMsg').textContent = cur ? '保存しています ✓（書き直して「保存」を押すと上書きします）' : '気分を押すだけでも記録できます。';
+  // 理想の1日タブ：一覧（新しい順に14日ぶん）
+  const days=Object.keys(data.diary).sort().reverse();
+  const box=$('diaryList'); box.textContent='';
+  if(!days.length){ const p=document.createElement('div'); p.className='empty'; p.style.marginTop='8px'; p.textContent='まだ日記はありません。ホームの「きょうのひとこと」から書けます。'; box.append(p); }
+  for(const d of days.slice(0,14)){
+    const e=data.diary[d], row=document.createElement('div'); row.className='dent';
+    const h=document.createElement('div'); h.className='d';
+    const a=document.createElement('span'); a.textContent=(e.m?MOODS[e.m][0]+' ':'')+jpDate(d);
+    const tg=document.createElement('span'); tg.textContent=dayTags(d).join(' ');
+    h.append(a,tg);
+    const tx=document.createElement('div'); tx.className='t'; tx.textContent=e.t||'（気分だけ）';
+    row.append(h,tx); box.append(row);
+  }
+  if(days.length>14){ const p=document.createElement('div'); p.className='sub'; p.textContent=`ほか ${days.length-14}日ぶん。上のカレンダーの日付を押すと、その日の日記を読めます。`; box.append(p); }
+  // 気分のまとめ（直近30日）
+  const mb=$('diaryMood'); mb.textContent='';
+  const from=addDays(t,-29), recent=days.filter(d=>d>=from && data.diary[d].m);
+  if(recent.length>=5){
+    const cnt=[0,0,0,0,0,0]; recent.forEach(d=>cnt[data.diary[d].m]++);
+    const n=document.createElement('div'); n.className='note'; n.style.marginTop='8px';
+    n.textContent='この30日の気分：'+[5,4,3,2,1].filter(i=>cnt[i]).map(i=>`${MOODS[i][0]}${cnt[i]}`).join('　');
+    // お酒を記録している人には、飲まなかった日と飲んだ日の気分をくらべて出す
+    const avg=L=>L.length ? L.reduce((s,d)=>s+data.diary[d].m,0)/L.length : null;
+    const no=avg(recent.filter(d=>soberState(d)==='no')), yes=avg(recent.filter(d=>soberState(d)==='yes'));
+    if(no!=null && yes!=null){ const face=v=>MOODS[Math.round(v)][0]; n.textContent+=`\n🍵飲まなかった日の気分は平均 ${face(no)}、🍺飲んだ日は ${face(yes)} でした。`; n.style.whiteSpace='pre-wrap'; }
+    mb.append(n);
+  }
+}
+$('diarySave').onclick=()=>{ saveDiary(todayYmd(), moodSel, $('diaryText').value); $('diaryText').blur(); renderDiary(); };
+$('diaryText').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('diarySave').click(); } });
+
 // ---------- からだ ----------
 // 控えや古い保存から読むときの関所：形のおかしいものは捨てる
 function cleanBody(o){
@@ -2488,6 +2600,7 @@ function cardStats(){
     pbs: data.body.pbs,
     rec: data.body.rec.length,
     sober: so ? so.best : 0,
+    diary: Object.keys(data.diary).length,
   };
 }
 const CARDS=[
@@ -2521,6 +2634,8 @@ const CARDS=[
    text:'人と話す・会うことも、体と心の健康に大きく関わります。退職したあとは特に意識して。'},
   {id:'c15', em:'🍶', t:'お酒なし 100日', cond:s=>s.sober>=100, hint:'お酒なしで100日',
    text:'健康診断の数字（肝臓・血圧）を、飲んでいたころとくらべてみると、変化が見えるかもしれません。'},
+  {id:'c17', em:'📔', t:'ひとこと日記 7日', cond:s=>s.diary>=7, hint:'ひとこと日記を7日書く',
+   text:'1行でも、書くと気持ちが整理されます。あとで読み返すと「調子がいい日」の共通点が見えてきます。'},
   {id:'c16', em:'🌟', t:'できた日 100日', cond:s=>s.days>=100, hint:'できた日を100日に',
    text:'100日。ここまで続けた自分に、拍手を。'},
 ];
@@ -2588,7 +2703,7 @@ function renderHomeBody(){
   box.append(row);
   if(so){ const m=document.createElement('div'); renderSoberMsg(m); box.append(m); }
 }
-function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderHomeBody(); renderCards(); renderNewCard(); }
+function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary(); }
 $('tiredBtn').onclick=()=>toggleTired(todayYmd());
 
 // ---------- はじめての人へ ----------
@@ -2611,7 +2726,7 @@ $('newsClose').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); };
 $('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); };
 
 function fillAll(){ fillMoney(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
-function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); }
+function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); }
 
 load(); fillAll(); renderAll();
 // アドレスの最後に ?tab=money などを付けると、そのタブで開く
