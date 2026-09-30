@@ -47,6 +47,7 @@ main{padding:0 16px;max-width:560px;margin:0 auto}
 .note{background:var(--main-soft);border-radius:12px;padding:10px 12px;font-size:15px;margin-top:10px}
 .note.warn{background:var(--warn-soft)}
 label.f{display:block;margin:10px 0 2px;font-size:14px;color:var(--sub)}
+input[readonly]{background:var(--main-soft)!important}
 input[type=number],input[type=text],input[type=date],input[type=month],input[type=password],textarea,select{width:100%;font:inherit;padding:10px 12px;
   border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink)}
 
@@ -277,10 +278,19 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <div class="sub" id="saveNote">退職の日までの間、「手取り − 生活費」がたまっていく計算にします。ボーナスも足して12で割ると、より近い数字になります。</div>
     <label class="f">ひと月の生活費（家ぜんたい）</label><div class="unit"><input type="number" inputmode="decimal" data-m="living" placeholder="例：26"><span>万円/月</span></div>
     <div class="sub">食費・光熱費・通信費・保険・車など、毎月出ていくお金の合計です。家賃や住宅ローンがあれば、それも入れてください。</div>
-    <label class="f">年金（家族の合計・ひと月）</label><div class="unit"><input type="number" inputmode="decimal" data-m="pension" placeholder="例：23"><span>万円/月</span></div>
+    <details class="sub" id="livingBox" style="margin-top:6px"><summary style="font-weight:700;color:var(--main)">内訳から計算する（項目ごとに入れる）</summary>
+      <div style="margin-top:6px">入れた項目の合計が、上の「ひと月の生活費」になります。分からない項目は空のままでかまいません。</div>
+      <div style="margin-top:4px">💡 退職後の暮らしで考えてください。通勤や仕事の付き合いのお金は減り、医療や趣味のお金は増えがちです。</div>
+      <div style="margin-top:4px">💡 親への仕送りは、ここではなく「くわしく入れる」の<b>親のために出るお金</b>へ（両方に入れると二重になります）。</div>
+      <div id="livingItems"></div>
+      <div id="livingSum" style="margin-top:8px;font-weight:700;color:var(--main)"></div>
+    </details>
+    <label class="f">年金の見込み額（家族の合計・ひと月・<b>65歳から</b>受け取る場合の額）</label><div class="unit"><input type="number" inputmode="decimal" data-m="pension" placeholder="例：23"><span>万円/月</span></div>
+    <div class="sub" id="penMain" style="color:var(--main);font-weight:600"></div>
     <div class="sub" id="penWho" style="color:var(--main);font-weight:600" hidden>↑ 配偶者の分を「くわしく入れる」に分けて入れているので、ここは<b>あなたの分だけ</b>にしてください。</div>
     <details class="sub" style="margin-top:4px"><summary>年金の額はどこで分かる？</summary>
-      毎年誕生月に届く「ねんきん定期便」か、ネットの「ねんきんネット」で分かります。50歳以上は「このまま働いた場合の見込み額」、50歳未満は「これまでの加入実績の額」が書かれています（50歳未満の額は実際より少なめに出ます）。年額なので12で割って入れてください。</details>
+      毎年誕生月に届く「ねんきん定期便」か、ネットの「ねんきんネット」で分かります。50歳以上は「このまま働いた場合の見込み額」、50歳未満は「これまでの加入実績の額」が書かれています（50歳未満の額は実際より少なめに出ます）。年額なので12で割って入れてください。<br>
+      ここには<b>65歳から受け取る場合の額</b>を入れます。70歳から受け取るなど年齢を変えたいときは、「くわしく入れる」の「年金を受け取りはじめる年齢」で変えると、増える・減る分を自動で計算します（ねんきん定期便に70歳・75歳の額が書いてあっても、ここは65歳の額のままで大丈夫です）。</details>
     <label class="f">退職金・退職手当の見込み（手取り）</label><div class="unit"><input type="number" inputmode="decimal" data-m="severance" placeholder="例：1800"><span>万円</span></div>
     <details class="sub" style="margin-top:4px"><summary>手取りって、税金はどのくらい？</summary>
       退職金には「退職所得控除」という大きな非課税の枠があり、長く勤めた人ほど税金はほとんどかからないことが多いです。勤め先から聞いた額が税金を引く前（額面）なら、「手取りだといくらか」も聞いておくと確実です。</details>
@@ -680,7 +690,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v4.5';
+const VERSION = 'v4.6';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -732,6 +742,7 @@ function blank(){
     cards: {},        // もらったごほうびカード {カードの番号:'もらった日'}
     cardNew: '',      // ホームでお知らせする、新しいカードの番号
     diary: {},        // ひとこと日記 {'2026-09-30':{m:気分1〜5, t:'文'}}
+    livingItems: {},  // 生活費の内訳 {food:7, util:2.5}（1つでも入っていれば、合計が money.living になる）
     body: blankBody(),
     seenNews: NEWS_ID,   // はじめての人には「新しくなりました」を出さない
     lastBackup: '' };
@@ -891,6 +902,14 @@ function renderSaveNote(){
 function renderPenNote(){
   $('penWho').hidden = !spouseOn(data.money);
   const m=data.money, p=clampPA(m.pensionAge), f=pensionFactor(p);
+  // 上の欄のすぐ下：何歳から受け取る計算かを見せ、変える場所へ飛べるようにする
+  const pm=$('penMain'); pm.textContent='';
+  if(num(m.pension)>0){
+    pm.append(p===65 ? '→ 65歳から受け取る計算です。' : `→ ${p}歳から受け取る計算です（ひと月 ${pensionMonthly(m).toFixed(1)}万円）。`);
+    const b=document.createElement('button'); b.className='ghost small'; b.style.marginLeft='6px'; b.textContent='受け取る年齢を変える';
+    b.onclick=()=>{ $('moreBox').open=true; const el=document.querySelector('[data-m="pensionAge"]'); el.scrollIntoView({block:'center',behavior:'smooth'}); el.focus({preventScroll:true}); };
+    pm.append(b);
+  }
   const t = p===65 ? '65歳が基準です。早めると1か月ごとに0.4%減り、遅らせると0.7%増えます。'
     : `${p}歳からだと、65歳より ${p<65?'':'+'}${((f-1)*100).toFixed(1)}%。`+(num(m.pension)>0?`上の年金はひと月 ${pensionMonthly(m).toFixed(1)}万円 として計算します。`:'');
   $('penNote').textContent = t + (num(m.pensionAge)&&num(m.pensionAge)!==p ? `（${p}歳として計算しています）` : '');
@@ -1507,6 +1526,72 @@ document.querySelectorAll('[data-c]').forEach(inp=>{
   inp.addEventListener('input',()=>{ const k=inp.dataset.c, v=inp.value.trim();
     data.cmp[k] = k==='date' ? (parseYmd(v)?v:'') : (v===''?'':Number(v)); save(); renderMoney(); renderCompare(); renderHomeMoney(); });
 });
+// ---------- 生活費の内訳（入れた項目の合計を money.living にする。使わない人は今までどおり） ----------
+const LIVING_ITEMS = [
+  {k:'house', t:'住まい（家賃・住宅ローン・管理費）', ph:'6'},
+  {k:'food',  t:'食費（外食もふくむ）', ph:'7'},
+  {k:'util',  t:'電気・ガス・水道', ph:'2.5'},
+  {k:'phone', t:'スマホ・インターネット', ph:'1'},
+  {k:'ins',   t:'保険（生命保険・医療保険など）', ph:'2'},
+  {k:'car',   t:'車（ガソリン・車の保険・駐車場）', ph:'2'},
+  {k:'daily', t:'日用品・衣類', ph:'1.5'},
+  {k:'med',   t:'医療・薬', ph:'1'},
+  {k:'fun',   t:'趣味・交際費・旅行', ph:'2'},
+  {k:'edu',   t:'子ども・教育', ph:''},
+  {k:'year',  t:'年に1回の支払い÷12（固定資産税・自動車税・車検など）', ph:'1'},
+  {k:'other', t:'そのほか', ph:'1'},
+];
+function livingSum(){
+  let s=0, n=0;
+  for(const it of LIVING_ITEMS){ const v=num(data.livingItems[it.k]); if(v>0){ s+=v; n++; } }
+  return {s:Math.round(s*10)/10, n};
+}
+function buildLivingItems(){
+  const box=$('livingItems');
+  for(const it of LIVING_ITEMS){
+    const lab=document.createElement('label'); lab.className='f'; lab.textContent=it.t;
+    const u=document.createElement('div'); u.className='unit';
+    const inp=document.createElement('input'); inp.type='number'; inp.inputMode='decimal'; inp.dataset.li=it.k;
+    if(it.ph) inp.placeholder='例：'+it.ph;
+    const sp=document.createElement('span'); sp.textContent='万円/月';
+    u.append(inp,sp); box.append(lab,u);
+    inp.addEventListener('input',()=>{
+      const v=inp.value.trim();
+      if(v===''||!isFinite(Number(v))||Number(v)<0) delete data.livingItems[it.k]; else data.livingItems[it.k]=Number(v);
+      applyLivingSum();
+    });
+  }
+}
+function renderLivingSum(){
+  const {s,n}=livingSum(), liv=document.querySelector('[data-m="living"]');
+  liv.readOnly = n>0;
+  $('livingSum').textContent = n>0
+    ? `合計 ${s}万円/月（${n}項目）→ 上の「ひと月の生活費」に入っています`
+    : '1つでも入れると、合計が上の「ひと月の生活費」になります。';
+}
+function applyLivingSum(){
+  const {s,n}=livingSum(), liv=document.querySelector('[data-m="living"]');
+  if(n>0){
+    // 内訳を使いはじめる前に自分で入れていた額を覚えておき、内訳を全部消したら元に戻す
+    if(data.livingManual===undefined) data.livingManual = data.money.living;
+    data.money.living=s; liv.value=s; checkInput(liv);
+  } else if(data.livingManual!==undefined){
+    data.money.living=data.livingManual; liv.value=data.livingManual; delete data.livingManual; checkInput(liv);
+  }
+  save(); renderLivingSum(); renderMoney(); renderHomeMoney(); renderCompare(); renderSetup(); renderReview(); renderWelcome();
+}
+function fillLivingItems(){
+  document.querySelectorAll('[data-li]').forEach(inp=>{ const v=data.livingItems[inp.dataset.li]; inp.value = v==null?'':v; });
+  if(livingSum().n>0) $('livingBox').open=true;
+  renderLivingSum();
+}
+function cleanLivingItems(o){
+  const r={}; if(!o||typeof o!=='object') return r;
+  for(const it of LIVING_ITEMS){ const v=Number(o[it.k]); if(o[it.k]!==''&&o[it.k]!=null&&isFinite(v)&&v>=0) r[it.k]=v; }
+  return r;
+}
+buildLivingItems();
+
 function fillMoney(){
   document.querySelectorAll('[data-m]').forEach(inp=>{ const v=data.money[inp.dataset.m]; inp.value = (v===''||v==null)?'':v; });
   document.querySelectorAll('[data-c]').forEach(inp=>{ const v=data.cmp[inp.dataset.c]; inp.value = (v===''||v==null)?'':v; });
@@ -1606,7 +1691,8 @@ function applyBackup(text){
     actuals: Array.isArray(d.actuals)
       ? d.actuals.filter(x=>x && parseYmd(x.date) && isFinite(Number(x.amt))).map(x=>({date:x.date, amt:Number(x.amt)})).slice(-120)
       : [],
-    tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID, diary: cleanDiary(d.diary),
+    tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID, diary: cleanDiary(d.diary), livingItems: cleanLivingItems(d.livingItems),
+    livingManual: d.livingManual==='' ? '' : (d.livingManual!=null && isFinite(Number(d.livingManual)) ? Number(d.livingManual) : undefined),
     body: cleanBody(d.body) };
   // おつかれの日・ごほうびカード：日付の形と、あるカードの番号だけを通す
   if(d.tired && typeof d.tired==='object') for(const k of Object.keys(d.tired)) if(parseYmd(k) && d.tired[k]===true) data.tired[k]=true;
@@ -1675,6 +1761,7 @@ function dataSummary(){
   // 生まれた年月そのものは送らず、計算した年齢だけを送る
   if(ageOf(m)>0) L.push((parseYmd(data.retireDate)?'退職するときの年齢：':'いまの年齢：')+Math.floor(ageOf(m))+'歳');
   f('いまの資産','assets','万円'); f('いまの手取り（ひと月）','income','万円'); f('ひと月の生活費','living','万円');
+  if(livingSum().n>0) L.push('生活費の内訳（ひと月）：'+LIVING_ITEMS.filter(it=>num(data.livingItems[it.k])>0).map(it=>`${it.t.replace(/（.*$/,'')} ${num(data.livingItems[it.k])}万円`).join('、'));
   if(num(m.income)>0 && parseYmd(data.retireDate)) L.push(`退職の日までにたまるお金：${man(preSave(m))}`);
   f('年金（家族の合計・ひと月・65歳からの額）','pension','万円');
   if(num(m.pension)>0) L.push(`年金を受け取りはじめる年齢：${clampPA(m.pensionAge)}歳（ひと月 ${pensionMonthly(m).toFixed(1)}万円）`);
@@ -2728,7 +2815,7 @@ function renderNews(){ $('newsCard').hidden = data.seenNews===NEWS_ID || !$('wel
 $('newsClose').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); };
 $('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); };
 
-function fillAll(){ fillMoney(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
+function fillAll(){ data.livingItems=cleanLivingItems(data.livingItems); fillMoney(); fillLivingItems(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
 function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); }
 
 load(); fillAll(); renderAll();
