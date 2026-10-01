@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>家、いくらまで？</title>
+<meta name="description" content="住宅ローン、無理なく返せるのはいくらまで？ 銀行が貸してくれる額との違い・完済の年齢・金利が上がったときの返済額を1画面で。">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f4f6fb; --card:#ffffff; --ink:#1b2130; --sub:#5b6477; --line:#e2e6ef;
+  --main:#2563eb; --main-soft:#e7eefe; --ok:#0f8a5f; --ok-soft:#e3f5ec; --warn:#c2410c; --warn-soft:#fdeee4;
+  --field:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f1420; --card:#171e2d; --ink:#e8ecf5; --sub:#9aa4b8; --line:#2a3345;
+    --main:#7aa2ff; --main-soft:#1d2a47; --ok:#4fd1a1; --ok-soft:#133126; --warn:#ff9a62; --warn-soft:#3a2216; --field:#10172a; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;font-size:16px;line-height:1.6;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+main{max-width:560px;margin:0 auto;padding:0 16px}
+header{max-width:560px;margin:0 auto;padding:18px 16px 4px}
+h1{font-size:22px;margin:0}
+.lead{color:var(--sub);font-size:14px;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.card h2{font-size:14px;margin:0 0 6px;color:var(--sub);font-weight:700}
+.hero{background:var(--ok-soft);border-color:transparent}
+.hero .big{color:var(--ok)}
+.big{font-size:44px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.big small{font-size:18px;font-weight:700;margin-left:2px}
+.mid{font-size:26px;font-weight:800;line-height:1.2}
+.sub{color:var(--sub);font-size:13px}
+.warn{color:var(--warn)}
+.box-warn{background:var(--warn-soft);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.row b{white-space:nowrap}
+.slider{margin:10px 0 14px}
+.slider .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.slider label{font-size:14px;font-weight:700}
+.slider .val{display:flex;align-items:center;gap:4px}
+.slider input[type=number]{width:92px;text-align:right;font:inherit;font-weight:800;font-size:17px;padding:4px 8px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink)}
+.slider .unit{color:var(--sub);font-size:13px;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--main);height:28px;margin:4px 0 0}
+details summary{cursor:pointer;color:var(--main);font-weight:700;font-size:14px}
+.bar{height:12px;background:var(--line);border-radius:8px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:8px 4px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td:not(:first-child){white-space:nowrap}
+th{color:var(--sub);font-size:12px;font-weight:700}
+.plus{color:var(--warn);font-weight:700}
+footer{color:var(--sub);font-size:12px;max-width:560px;margin:8px auto 0;padding:0 16px}
+</style>
+</head>
+<body>
+<header>
+  <a href="../" style="font-size:13px;color:var(--main);text-decoration:none">← 未来ノート</a>
+  <h1>🏠 家、いくらまで？</h1>
+  <div class="lead">スライダーを動かすだけ。入れた数字はこのスマホの中だけ。</div>
+</header>
+<main>
+
+<div class="card hero">
+  <h2>無理なく返せるのは</h2>
+  <div class="big" id="safeLoan">—</div>
+  <div class="sub" id="safeNote"></div>
+  <div class="mid" style="margin-top:10px" id="safeHouse">—</div>
+  <div class="sub">＝ 買える家の値段の目安（頭金こみ）</div>
+</div>
+
+<div class="card">
+  <h2>銀行が貸してくれる上限</h2>
+  <div class="mid" id="maxLoan">—</div>
+  <div class="sub" id="maxNote"></div>
+  <div class="bar"><i id="maxBar"></i></div>
+  <div class="box-warn" id="maxWarn" hidden></div>
+</div>
+
+<div class="card">
+  <h2>あなたのこと</h2>
+  <div id="sliders"></div>
+  <details>
+    <summary>もっと細かく</summary>
+    <div id="sliders2"></div>
+  </details>
+</div>
+
+<div class="card">
+  <h2>この額を借りると</h2>
+  <div id="borrowSlider"></div>
+  <div class="row"><span>毎月の返済</span><b id="pay">—</b></div>
+  <div class="row"><span>手取りのうち</span><b id="payRate">—</b></div>
+  <div class="row"><span>返すお金の合計</span><b id="total">—</b></div>
+  <div class="row"><span>そのうち利息</span><b id="interest">—</b></div>
+  <div class="row"><span>完済のとき</span><b id="endAge">—</b></div>
+  <div class="box-warn" id="retireWarn" hidden></div>
+</div>
+
+<div class="card">
+  <h2>金利が上がったら？</h2>
+  <div class="sub" id="rateLead"></div>
+  <table>
+    <thead><tr><th>金利</th><th>毎月の返済</th><th>ふえる額（月）</th></tr></thead>
+    <tbody id="rateTable"></tbody>
+  </table>
+  <div class="sub" style="margin-top:6px">変動金利は、借りたあとに金利が上がると返済もふえます。ここでは「借りた最初からその金利だった場合」のざっくりした額です。</div>
+</div>
+
+<div class="card sub">
+  <b>ローンのほかにかかるお金</b><br>
+  家を持つと、固定資産税・火災保険・修理のお金がかかります。マンションなら管理費と修繕積立金も毎月かかります。「毎月の返済」だけで決めないでください。
+</div>
+
+</main>
+<footer>
+  <div>計算の前提：元利均等返済（毎月同じ額を返す方式）。銀行の上限は、年収400万円未満は年収の30%、400万円以上は35%を1年の返済にあてる、審査用の金利（くわしくで変更可）で計算しています。銀行や商品によって審査の基準はちがいます。これは目安で、借入をすすめるものではありません。</div>
+  <div style="margin:10px 0 0" id="ver"></div>
+</footer>
+
+<script>
+const VERSION='v1.0';
+const KEY='ie-loan';
+const $=id=>document.getElementById(id);
+
+// 入れる数字（初めから「よくある例」を入れておき、開いた瞬間に答えが出るようにする）
+const FIELDS=[
+  {k:'age',    label:'いまの年齢',          unit:'歳',   min:20, max:55,  step:1,   def:30,  box:'sliders'},
+  {k:'income', label:'年収（税金を引く前）', unit:'万円', min:200,max:1500,step:10,  def:450, box:'sliders'},
+  {k:'down',   label:'頭金',                unit:'万円', min:0,  max:2000,step:10,  def:100, box:'sliders'},
+  {k:'rate',   label:'金利（年）',          unit:'%',    min:0.3,max:4,   step:0.05,def:1.0, box:'sliders'},
+  {k:'years',  label:'返す年数',            unit:'年',   min:10, max:35,  step:1,   def:35,  box:'sliders'},
+  {k:'take',   label:'月の手取り（0＝年収から自動）', unit:'万円', min:0, max:120, step:0.5, def:0, box:'sliders2'},
+  {k:'safePct',label:'手取りの何%まで返済にあてるか',  unit:'%',  min:10, max:40,  step:1,   def:25, box:'sliders2'},
+  {k:'testRate',label:'銀行の審査用の金利',  unit:'%',   min:1,  max:5,   step:0.1, def:3.0, box:'sliders2'},
+  {k:'retire', label:'定年（働き終える年齢）', unit:'歳', min:55, max:75,  step:1,   def:65,  box:'sliders2'},
+];
+let S={};
+function load(){
+  let saved={}; try{ saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ saved={}; }
+  for(const f of FIELDS){ const v=Number(saved[f.k]); S[f.k] = isFinite(v) ? clamp(f,v) : f.def; }
+  const b=Number(saved.borrow); S.borrow = isFinite(b)&&b>0 ? b : null;   // null＝「無理なく返せる額」に合わせる
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function clamp(f,v){ return Math.min(f.max, Math.max(f.min, v)); }
+
+// ---- 計算 ----
+// 毎月の返済（元利均等）：借入額P万円・年利rate%・n年
+function monthly(P, rate, n){
+  const r=rate/100/12, N=n*12;
+  if(P<=0) return 0;
+  if(r===0) return P/N;
+  return P*r/(1-Math.pow(1+r,-N));
+}
+// 毎月 pay 万円を返せるとき、借りられる額
+function principal(pay, rate, n){
+  const r=rate/100/12, N=n*12;
+  if(pay<=0) return 0;
+  if(r===0) return pay*N;
+  return pay*(1-Math.pow(1+r,-N))/r;
+}
+// k か月返したあとの残り
+function balance(P, rate, n, k){
+  const r=rate/100/12, pay=monthly(P,rate,n);
+  if(k>=n*12) return 0;
+  if(r===0) return Math.max(0, P-pay*k);
+  return Math.max(0, P*Math.pow(1+r,k) - pay*(Math.pow(1+r,k)-1)/r);
+}
+function takeHome(){ return S.take>0 ? S.take : S.income*0.75/12; }   // 手取りのざっくり（年収の75%を12で割る）
+const man=v=>Math.round(v).toLocaleString('ja-JP')+'万円';
+const man1=v=>(Math.round(v*10)/10).toLocaleString('ja-JP')+'万円';
+const yen=v=>Math.round(v*10000).toLocaleString('ja-JP')+'円';
+
+function render(){
+  const th=takeHome();
+  // 無理なく返せる額
+  const safePay=th*S.safePct/100;
+  const safe=principal(safePay, S.rate, S.years);
+  $('safeLoan').innerHTML=''; $('safeLoan').append(Math.round(safe).toLocaleString('ja-JP')); const u=document.createElement('small'); u.textContent='万円'; $('safeLoan').append(u);
+  $('safeNote').textContent=`手取り 月${man1(th)} の${S.safePct}%（月${yen(safePay)}）を返済にあてる場合`;
+  $('safeHouse').textContent=man(safe+S.down);
+
+  // 銀行の上限
+  const ratio = S.income<400 ? 0.30 : 0.35;
+  const maxPayYear=S.income*ratio;
+  const max=principal(maxPayYear/12, S.testRate, S.years);
+  const maxPayReal=monthly(max, S.rate, S.years);
+  const maxPct=maxPayReal/th*100;
+  $('maxLoan').textContent=man(max);
+  $('maxNote').textContent=`ここまで借りると、毎月 ${yen(maxPayReal)}。手取りの ${Math.round(maxPct)}% が返済で消えます。`;
+  $('maxBar').style.width=Math.min(100,maxPct)+'%';
+  $('maxBar').style.background = maxPct>S.safePct ? 'var(--warn)' : 'var(--ok)';
+  const w=$('maxWarn');
+  w.hidden = !(max>safe*1.05);
+  w.textContent = `「借りられる額」と「無理なく返せる額」は、${man(max-safe)} ちがいます。上限まで借りると、貯金や子どもの教育費、急な出費にまわすお金が減ります。`;
+
+  // この額を借りると
+  const lo=0, hi=Math.max(1000, Math.ceil(max/100)*100+1000);
+  const borrow = S.borrow==null ? Math.round(safe/10)*10 : Math.min(S.borrow, hi);
+  renderBorrowSlider(borrow, hi);
+  const pay=monthly(borrow, S.rate, S.years), N=S.years*12;
+  $('pay').textContent=yen(pay);
+  const pct=pay/th*100;
+  $('payRate').textContent=Math.round(pct)+'%'; $('payRate').className = pct>S.safePct ? 'warn' : '';
+  $('total').textContent=man(pay*N);
+  $('interest').textContent=man(pay*N-borrow);
+  const end=S.age+S.years;
+  $('endAge').textContent=end+'歳';
+  const rw=$('retireWarn');
+  if(end>S.retire && borrow>0){
+    const k=(S.retire-S.age)*12, left=balance(borrow,S.rate,S.years,k);
+    rw.hidden=false;
+    rw.textContent=`定年（${S.retire}歳）のあとも ${end-S.retire}年 払い続けます。${S.retire}歳の時点で、まだ ${man(left)} 残ります。退職金で返すか、年金から払うことになります。`;
+  } else rw.hidden=true;
+
+  // 金利が上がったら
+  $('rateLead').textContent=`${man(borrow)} を ${S.years}年で借りた場合`;
+  const tb=$('rateTable'); tb.textContent='';
+  for(const add of [0,0.5,1,2]){
+    const r=S.rate+add, p=monthly(borrow,r,S.years);
+    const tr=document.createElement('tr');
+    const c=(t,cls)=>{ const td=document.createElement('td'); td.textContent=t; if(cls) td.className=cls; tr.append(td); };
+    // 1列目：金利（下に小さく利息の合計）
+    const td=document.createElement('td'); td.textContent=(Math.round(r*100)/100)+'%'+(add?`（+${add}）`:'（いま）');
+    const s=document.createElement('div'); s.className='sub'; s.textContent='利息 '+man(p*N-borrow); td.append(s); tr.append(td);
+    c(yen(p)); c(add?'+'+yen(p-pay):'—', add?'plus':'');
+    tb.append(tr);
+  }
+  save();
+}
+
+// ---- スライダー ----
+function makeSlider(f, box){
+  const wrap=document.createElement('div'); wrap.className='slider';
+  const top=document.createElement('div'); top.className='top';
+  const lab=document.createElement('label'); lab.textContent=f.label; lab.htmlFor='n_'+f.k;
+  const val=document.createElement('div'); val.className='val';
+  const num=document.createElement('input'); num.type='number'; num.id='n_'+f.k; num.min=f.min; num.max=f.max; num.step=f.step; num.inputMode='decimal'; num.value=S[f.k];
+  const un=document.createElement('span'); un.className='unit'; un.textContent=f.unit;
+  val.append(num,un); top.append(lab,val);
+  const rg=document.createElement('input'); rg.type='range'; rg.min=f.min; rg.max=f.max; rg.step=f.step; rg.value=S[f.k]; rg.setAttribute('aria-label',f.label);
+  rg.addEventListener('input',()=>{ S[f.k]=Number(rg.value); num.value=rg.value; if(f.k!=='borrow') S.borrow=S.borrowTouched?S.borrow:null; render(); });
+  num.addEventListener('change',()=>{ const v=Number(num.value); if(!isFinite(v)){ num.value=S[f.k]; return; } S[f.k]=clamp(f,v); num.value=S[f.k]; rg.value=S[f.k]; render(); });
+  wrap.append(top,rg); $(box).append(wrap);
+}
+// 「借りる額」だけは上限が変わるので、毎回つくり直す
+function renderBorrowSlider(v, hi){
+  const box=$('borrowSlider');
+  let rg=box.querySelector('input[type=range]'), num=box.querySelector('input[type=number]');
+  if(!rg){
+    box.innerHTML='';
+    const f={k:'borrow',label:'借りる額',unit:'万円'};
+    const wrap=document.createElement('div'); wrap.className='slider';
+    const top=document.createElement('div'); top.className='top';
+    const lab=document.createElement('label'); lab.textContent=f.label; lab.htmlFor='n_borrow';
+    const val=document.createElement('div'); val.className='val';
+    num=document.createElement('input'); num.type='number'; num.id='n_borrow'; num.inputMode='numeric'; num.step=10;
+    const un=document.createElement('span'); un.className='unit'; un.textContent='万円';
+    val.append(num,un); top.append(lab,val);
+    rg=document.createElement('input'); rg.type='range'; rg.min=0; rg.step=10; rg.setAttribute('aria-label','借りる額');
+    const back=document.createElement('button'); back.textContent='「無理なく返せる額」にもどす';
+    back.style.cssText='font:inherit;font-size:13px;border:1px solid var(--main);color:var(--main);background:transparent;border-radius:10px;padding:4px 10px;cursor:pointer';
+    back.onclick=()=>{ S.borrow=null; S.borrowTouched=false; render(); };
+    rg.addEventListener('input',()=>{ S.borrow=Number(rg.value); S.borrowTouched=true; render(); });
+    num.addEventListener('change',()=>{ const x=Number(num.value); if(isFinite(x)&&x>=0){ S.borrow=Math.round(x); S.borrowTouched=true; } render(); });
+    wrap.append(top,rg,back); box.append(wrap);
+  }
+  rg.max=hi; rg.value=v; if(document.activeElement!==num) num.value=v;
+}
+
+load();
+S.borrowTouched = S.borrow!=null;
+for(const f of FIELDS) makeSlider(f, f.box);
+render();
+$('ver').textContent='家、いくらまで？ '+VERSION;
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
