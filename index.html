@@ -527,6 +527,10 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <div id="liftMsg"></div>
       <div id="liftView"></div>
     </div>
+    <div class="card" id="growCard" hidden>
+      <h2>📈 のびしろ予測</h2>
+      <div id="growBox"></div>
+    </div>
   </div>
 
   <div data-bp="rec" hidden>
@@ -710,7 +714,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v4.9';
+const VERSION = 'v5.0';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -778,7 +782,9 @@ function blankBody(){
     pbs: 0,           // 自己ベストを更新した回数（カード用）
     rec: [],          // 血圧・体重 [{date, sys, dia, wt}]
     soberOn: false, soberStart: '', soberCost: '', drank: [],  // お酒なし（飲んだ日）
-    soberOk: [] };    // 「飲まなかった」と押した日（押していない日も、連続日数では飲まなかった扱い）
+    soberOk: [],      // 「飲まなかった」と押した日（押していない日も、連続日数では飲まなかった扱い）
+    goals: {},        // 種目ごとの目標（1回だけ挙がりそうな重さ）{'ベンチプレス':60}
+    freq: 2 };        // のびしろ予測で使う「週に何回やるか」（1〜3）
 }
 // おつかれの日（夜勤明け・寝不足の日）の軽いメニュー。番号はマイナスにして「理想の1日」と重ならないようにする
 const EASY_DAY = [
@@ -2392,6 +2398,9 @@ function cleanBody(o){
   // 同じ日が両方に入っていたら「飲んだ」を優先する
   if(Array.isArray(o.soberOk)) b.soberOk = [...new Set(o.soberOk.filter(d=>parseYmd(d) && !b.drank.includes(d)))].sort();
   if(b.soberOn && !b.soberStart) b.soberOn=false;
+  if(o.goals && typeof o.goals==='object' && !Array.isArray(o.goals))
+    for(const [k,v] of Object.entries(o.goals)){ const n=nOk(v,1,500); if(typeof k==='string' && k.trim() && n!=='') b.goals[k.trim().slice(0,30)]=n; }
+  b.freq = [1,2,3].includes(o.freq) ? o.freq : 2;
   return b;
 }
 
@@ -2519,7 +2528,7 @@ function renderLifts(){
   const names=[...new Set(B.lifts.map(x=>x.name))];
   const dl=$('liftNames'); dl.textContent='';
   for(const n of [...new Set(names.concat(LIFT_NAMES))]){ const o=document.createElement('option'); o.value=n; dl.append(o); }
-  if(!B.lifts.length){ const p=document.createElement('div'); p.className='empty'; p.style.marginTop='10px'; p.textContent='まだ記録がありません。いちばん重いセットだけ入れれば十分です。'; box.append(p); return; }
+  if(!B.lifts.length){ const p=document.createElement('div'); p.className='empty'; p.style.marginTop='10px'; p.textContent='まだ記録がありません。いちばん重いセットだけ入れれば十分です。'; box.append(p); renderGrow(); return; }
   if(!names.includes(liftShow)) liftShow = B.lifts.at(-1).name;
   const seg=document.createElement('div'); seg.className='add'; seg.style.marginTop='12px';
   // 種目のボタンを押すと、上の入力欄にもその種目が入る（続けて記録しやすいように）
@@ -2547,6 +2556,114 @@ function renderLifts(){
     del.onclick=()=>{ if(confirm('この記録をけしますか？')){ B.lifts=B.lifts.filter(y=>y!==x); save(); renderLifts(); } };
     r.append(a,b,del); box.append(r);
   }
+  renderGrow();
+}
+
+// ---------- のびしろ予測（これだけやると、どれくらい伸びるか）とゲーム要素 ----------
+// はじめての人の目安：研究では高齢の人でも週2〜3回・12週で力が平均25%前後伸びる。
+// 30回ほどで +25% → 1回あたり約0.75%。控えめに 0.6% とする
+const GROW_DEF = 0.006;
+const LV_STEP = 2.5;   // 2.5kg伸びるごとにレベルが1つ上がる（ジムの重りの最小単位に近い）
+// 日ごとのいちばん良い目安（12回までの記録）
+function liftDays(name){
+  const byDay={}; for(const x of data.body.lifts){ if(x.name!==name || x.reps>12) continue; const v=e1rm(x.kg,x.reps); if(!(byDay[x.date]>=v)) byDay[x.date]=v; }
+  return Object.entries(byDay).sort((a,b)=>a[0]<b[0]?-1:1);
+}
+// その人のこれまでの伸び方（1回あたり）。3日以上・3週間以上の記録があるときだけ
+function personalRate(days){
+  if(days.length<3 || daysBetween(days[0][0], days.at(-1)[0])<21) return null;
+  const first=days[0][1], last=Math.max(...days.slice(-2).map(d=>d[1]));
+  const r=Math.pow(last/first, 1/(days.length-1))-1;
+  return Math.max(0.001, Math.min(0.02, r));
+}
+// 週 freq 回、weeks 週つづけたときの目安。伸びるほどゆっくりになる（最初の重さから+60%で、伸びが2割まで落ちる）
+function growPath(start, base, rate, freq, weeks){
+  const out=[start]; let v=start;
+  for(let w=0; w<weeks; w++){
+    const slow=Math.max(0.2, 1-(v/base-1)/0.6);
+    v*=Math.pow(1+rate*slow, freq); out.push(v);
+  }
+  return out;
+}
+function weeksTo(goal, start, base, rate, freq){
+  let v=start;
+  for(let w=1; w<=156; w++){ const slow=Math.max(0.2, 1-(v/base-1)/0.6); v*=Math.pow(1+rate*slow, freq); if(v>=goal) return w; }
+  return null;
+}
+// 何週つづけて筋トレしたか（月曜はじまり。「きょうやった」か重さの記録がある週）
+function trainWeeks(){
+  const B=data.body, days=new Set([...Object.keys(B.trained), ...B.lifts.map(x=>x.date)]);
+  const monday=d=>{ const t=parseYmd(d), k=(t.getDay()+6)%7; return addDays(d,-k); };
+  const weeks=new Set([...days].map(monday));
+  let w=monday(todayYmd()), n=0;
+  if(!weeks.has(w)) w=addDays(w,-7);          // 今週まだなら、先週から数える
+  while(weeks.has(w)){ n++; w=addDays(w,-7); }
+  return n;
+}
+function liftLevel(days){ if(!days.length) return {lv:0,next:0}; const first=days[0][1], best=Math.max(...days.map(d=>d[1])), g=Math.max(0,best-first);
+  const lv=1+Math.floor(g/LV_STEP+1e-9); return {lv, next: first+lv*LV_STEP-best}; }
+function renderGrow(){
+  const card=$('growCard'), box=$('growBox'), B=data.body, name=liftShow;
+  const days=name ? liftDays(name) : [];
+  card.hidden = !days.length; box.textContent='';
+  if(!days.length) return;
+  const best=Math.max(...days.map(d=>d[1])), base=days[0][1];
+  const pr=personalRate(days), rate=pr ?? GROW_DEF;
+  const el=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
+
+  // レベルと、つづけた週
+  const L=liftLevel(days), wk=trainWeeks();
+  const top=el('div'); top.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin-top:4px';
+  const chip=(big,small)=>{ const c=el('div'); c.style.cssText='flex:1 1 130px;background:var(--main-soft);border-radius:14px;padding:10px 12px';
+    c.append(el('div','sub',small)); const b=el('div',null,big); b.style.cssText='font-size:24px;font-weight:800'; c.append(b); return c; };
+  top.append(chip(`Lv.${L.lv}`, `${name}のレベル`), chip(wk?`🔥 ${wk}週`:'—', 'つづけて筋トレした週'));
+  box.append(top);
+  const lvBar=el('div','bar'); lvBar.style.marginTop='10px'; const lvi=el('i'); lvi.style.width=Math.round((1-L.next/LV_STEP)*100)+'%'; lvBar.append(lvi);
+  box.append(lvBar, el('div','sub',`つぎの Lv.${L.lv+1} まで あと ${kgTxt(Math.max(0,L.next))}（${kgTxt(LV_STEP)}伸びるごとに1つ上がります）`));
+
+  // 週に何回やるか
+  const fh=el('div',null,'週に何回やりますか？'); fh.style.cssText='font-weight:700;margin-top:14px'; box.append(fh);
+  const seg=el('div','seg'); seg.style.marginTop='6px';
+  for(const f of [1,2,3]){ const b=el('button',null,`週${f}回`); b.setAttribute('aria-pressed', String(B.freq===f)); b.onclick=()=>{ B.freq=f; save(); renderGrow(); }; seg.append(b); }
+  box.append(seg);
+
+  // 3か月後の目安
+  const W=13, path=growPath(best, base, rate, B.freq, W);
+  const big=el('div','big',kgTxt(path[W])); big.style.cssText='font-size:40px;margin-top:10px';
+  box.append(el('div','sub',`週${B.freq}回つづけると、3か月後の目安`), big,
+    el('div','sub',`いまの自己ベスト ${kgTxt(best)} から ＋${kgTxt(path[W]-best)}`));
+  // 回数でどう変わるか
+  const tbl=el('div'); tbl.style.marginTop='8px';
+  for(const f of [1,2,3]){ const v=growPath(best, base, rate, f, W)[W]; const r=el('div','row'); r.append(el('span',null,`週${f}回なら`)); const b=el('b',null,`${kgTxt(v)}（＋${kgTxt(v-best)}）`); if(f===B.freq) b.style.color='var(--main)'; r.append(b); tbl.append(r); }
+  box.append(tbl);
+
+  // 目標
+  const gh=el('div',null,'🎯 目標の重さ（1回だけ挙がりそうな重さ）'); gh.style.cssText='font-weight:700;margin-top:14px'; box.append(gh);
+  const gu=el('div','unit'); gu.style.marginTop='6px';
+  const gi=el('input'); gi.type='number'; gi.inputMode='decimal'; gi.placeholder='例：'+(Math.ceil(best*1.1/LV_STEP)*LV_STEP);
+  gi.value = B.goals[name] ? B.goals[name] : '';
+  gi.addEventListener('change',()=>{ const v=Number(gi.value); if(gi.value.trim()===''||!(v>=1&&v<=500)) delete B.goals[name]; else B.goals[name]=v; save(); checkCards(); renderGrow(); renderCards(); renderNewCard(); });
+  gu.append(gi, el('span',null,'kg')); box.append(gu);
+  const goal=B.goals[name];
+  if(goal){
+    const pct=Math.max(0, Math.min(1, goal>base ? (best-base)/(goal-base) : 1));
+    const gbar=el('div','bar'); gbar.style.cssText='margin-top:10px;height:16px'; const gi2=el('i'); gi2.style.width=Math.round(pct*100)+'%'; gi2.style.background= pct>=1?'var(--ok)':'var(--main)'; gbar.append(gi2); box.append(gbar);
+    const medals=[[1/3,'🥉'],[2/3,'🥈'],[1,'🥇']].map(([p,m])=>pct+1e-9>=p?m:'⚪').join(' ');
+    const ms=el('div',null,medals); ms.style.cssText='font-size:22px;margin-top:4px;letter-spacing:4px'; box.append(ms);
+    if(best>=goal) box.append(el('div','note',`🎉 目標の ${kgTxt(goal)} に届きました！ 次の目標を決めてみましょう。`));
+    else{
+      const w=weeksTo(goal, best, base, rate, B.freq);
+      box.append(el('div','sub', `あと ${kgTxt(goal-best)}。`+(w ? `週${B.freq}回なら、約${w}週後（${jpDate(addDays(todayYmd(),w*7))}ごろ）が目安です。` : `週${B.freq}回だと、3年以上かかる目安です。回数を増やすか、目標を少し下げてみてください。`)));
+    }
+  }
+
+  // グラフ：これまで（実線）＋これから（点線）＋目標の線
+  const fut=growPath(best, base, rate, B.freq, W).map((v,i)=>[addDays(todayYmd(), i*7), v]);
+  box.append(miniChart([{pts:days, color:'var(--main)'}, {pts:fut, color:'var(--ok)', dash:true, noDots:true}], goal?[{y:goal}]:[], v=>Math.round(v)+'kg'));
+  box.append(el('div','sub', (pr!=null
+      ? `点線は、あなたのこれまでの伸び方（1回あたり＋${(pr*100).toFixed(1)}%）で計算した目安です。`
+      : `点線は、はじめての人の目安（1回あたり＋${(GROW_DEF*100).toFixed(1)}%）で計算しています。記録が3週間ぶんたまると、あなたの伸び方に切りかわります。`)
+    + '伸びは最初の数か月が大きく、だんだんゆっくりになります。研究では、高齢の人でも週2〜3回・12週で力が平均25%前後伸びています。痛い日は休んでください。'));
 }
 // 種目を入れると、その種目の前回の記録を出す（きょうの重さを決める目安に）
 function renderLiftPrev(){
@@ -2597,8 +2714,10 @@ function miniChart(series, refs, fmt){
   for(const s of series){
     if(!s.pts.length) continue;
     const p=s.pts.map(q=>X(q[0]).toFixed(1)+','+Y(q[1]).toFixed(1)).join(' ');
-    if(s.pts.length>1) el('polyline',{points:p,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round'});
-    s.pts.forEach(q=>el('circle',{cx:X(q[0]).toFixed(1),cy:Y(q[1]).toFixed(1),r:3,fill:s.color}));
+    const line={points:p,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round'};
+    if(s.dash) line['stroke-dasharray']='6 4';   // 予測など「まだ先のこと」は点線
+    if(s.pts.length>1) el('polyline',line);
+    if(!s.noDots) s.pts.forEach(q=>el('circle',{cx:X(q[0]).toFixed(1),cy:Y(q[1]).toFixed(1),r:3,fill:s.color}));
   }
   const md=d=>{ const t=parseYmd(d); return (t.getMonth()+1)+'/'+t.getDate(); };
   el('text',{x:pl,y:H-6,'text-anchor':'start'},md(d0));
@@ -2831,6 +2950,9 @@ function cardStats(){
     rec: data.body.rec.length,
     sober: so ? so.best : 0,
     diary: Object.keys(data.diary).length,
+    // 筋トレの目標に届いた種目があるか／いちばん高いレベル
+    goalHit: Object.entries(data.body.goals).some(([n,g])=>best1rm(n)>=g),
+    liftLv: Math.max(0, ...[...new Set(data.body.lifts.map(x=>x.name))].map(n=>liftLevel(liftDays(n)).lv)),
   };
 }
 const CARDS=[
@@ -2856,6 +2978,10 @@ const CARDS=[
    text:'お酒を控えると、眠りが深くなりやすいと言われています。朝の気分のちがいを感じてみてください。'},
   {id:'c11', em:'🎖', t:'筋トレ 20回', cond:s=>s.trained>=20, hint:'筋トレを20回',
    text:'筋トレは週2〜3回で十分効果があります。毎日より、休む日をはさむほうが伸びます。'},
+  {id:'c18', em:'⬆️', t:'筋トレ Lv.5', cond:s=>s.liftLv>=5, hint:'どれか1つの種目で Lv.5 に（はじめより＋10kg）',
+   text:'重さは、毎回少しずつで十分。同じ重さで回数が増えたら、次の重さに進むサインです。'},
+  {id:'c19', em:'🎯', t:'目標の重さに到達', cond:s=>s.goalHit, hint:'のびしろ予測で決めた目標の重さに届く',
+   text:'目標に届いたら、次は少し先に。届かない時期も、続けていること自体が力になっています。'},
   {id:'c12', em:'🌕', t:'できた日 30日', cond:s=>s.days>=30, hint:'できた日を30日に',
    text:'1か月つづいた習慣は、もう暮らしの一部です。理想の1日に、ひとつ足してみませんか。'},
   {id:'c13', em:'💴', t:'お酒なし 1か月', cond:s=>s.sober>=30, hint:'お酒なしで30日',
