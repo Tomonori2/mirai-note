@@ -298,6 +298,29 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <details class="sub" style="margin-top:4px"><summary>年金の額はどこで分かる？</summary>
       毎年誕生月に届く「ねんきん定期便」か、ネットの「ねんきんネット」で分かります。50歳以上は「このまま働いた場合の見込み額」、50歳未満は「これまでの加入実績の額」が書かれています（50歳未満の額は実際より少なめに出ます）。年額なので12で割って入れてください。<br>
       ここには<b>65歳から受け取る場合の額</b>を入れます。70歳から受け取るなど年齢を変えたいときは、「くわしく入れる」の「年金を受け取りはじめる年齢」で変えると、増える・減る分を自動で計算します（ねんきん定期便に70歳・75歳の額が書いてあっても、ここは65歳の額のままで大丈夫です）。</details>
+    <details class="note" style="margin-top:8px" id="peBox">
+      <summary style="font-weight:700;cursor:pointer">🧮 ねんきん定期便が手元にない人へ：年金の目安を出す</summary>
+      <div class="sub" style="margin-top:6px">年収と働く年数から、65歳から受け取る年金の<b>だいたいの額</b>を出します。正確な額は「ねんきん定期便」が一番です。届いたら、その数字に入れ直してください。</div>
+      <label class="f">会社などで働いた（働く）あいだの、平均の年収（税金を引く前・ボーナスこみ）</label><div class="unit"><input type="number" inputmode="decimal" data-m="peIncome" placeholder="例：450"><span>万円/年</span></div>
+      <div class="sub">若いころから退職までを、ならした額です。分からなければ、いまの年収より少し低めに入れると近くなります。自営業などで厚生年金に入ったことがなければ、空のままにします。</div>
+      <label class="f">厚生年金に入って働く年数（これまで＋これから）</label><div class="unit"><input type="number" inputmode="numeric" data-m="peYears" placeholder="例：38"><span>年</span></div>
+      <div class="sub">会社員・公務員として働く年数の合計です（例：22歳から60歳まで＝38年）。</div>
+      <label class="f">国民年金の保険料を納める年数（20歳〜60歳・最大40年）</label><div class="unit"><input type="number" inputmode="numeric" data-m="peKiso" placeholder="空なら40年"><span>年</span></div>
+      <div class="sub">会社員・公務員の期間や、扶養に入っていた期間もふくみます。未納や学生のころの猶予がなければ40年です。</div>
+      <label class="f">配偶者の年金</label>
+      <select data-m="peSpouse">
+        <option value="0">入れない</option>
+        <option value="1">国民年金（満額）を足す</option>
+      </select>
+      <div class="sub">配偶者が専業主婦／主夫や扶養内のパートなら「国民年金（満額）を足す」を選びます。共働きで配偶者も厚生年金に入っている場合は「入れない」のまま、配偶者の分も同じように計算して、合計を上の欄に入れてください。</div>
+      <div id="peResult" style="margin-top:10px"></div>
+      <details class="sub" style="margin-top:8px"><summary>計算のしかたと、ずれる理由</summary>
+        <div style="margin-top:6px">・<b>国民年金（基礎年金）</b>：満額 ひと月70,608円（2026年度）×納めた年数÷40年<br>
+        ・<b>厚生年金</b>：平均の年収×0.5481%×働いた年数（2003年4月からの式。それより前の期間は式が少し違います）<br>
+        ・年収が高い人は、計算に入る給与とボーナスに上限があります（年収およそ1,000万円をこえる分は、ほとんど増えません）<br>
+        ・いまの値段での目安です。実際の額は、働いた全期間の給与の記録と、毎年の改定で決まります<br>
+        ・公務員の上乗せ（年金払い退職給付）、企業年金、iDeCo、加給年金（年下の配偶者がいるときの加算）は入っていません</div></details>
+    </details>
     <label class="f">退職金・退職手当の見込み（手取り）</label><div class="unit"><input type="number" inputmode="decimal" data-m="severance" placeholder="例：1800"><span>万円</span></div>
     <details class="sub" style="margin-top:4px"><summary>手取りって、税金はどのくらい？</summary>
       退職金には「退職所得控除」という大きな非課税の枠があり、長く勤めた人ほど税金はほとんどかからないことが多いです。勤め先から聞いた額が税金を引く前（額面）なら、「手取りだといくらか」も聞いておくと確実です。</details>
@@ -714,7 +737,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.0';
+const VERSION = 'v5.1';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -754,7 +777,7 @@ const DEFAULT_DAY =['起きる','体を動かす','好きなことに打ちこ�
 
 function blank(){
   return { v:1, retireDate:'', startDate:todayYmd(),
-    money:{job:'',birth:'',assets:'',income:'',living:'',pension:'',severance:'',otherIn:'',work:'',reserve:'',tax:'',oneTime:'',age:'',pensionAge:65,lifeAge:90,infl:0,spousePension:'',spouseAt:'',parentCost:'',parentYears:'',parentAt:'',livingNow:''},
+    money:{job:'',birth:'',assets:'',income:'',living:'',pension:'',severance:'',otherIn:'',work:'',reserve:'',tax:'',oneTime:'',age:'',pensionAge:65,lifeAge:90,infl:0,spousePension:'',spouseAt:'',parentCost:'',parentYears:'',parentAt:'',livingNow:'',peIncome:'',peYears:'',peKiso:'',peSpouse:0},
     cmp:{date:'',income:'',severance:''},
     todos: DEFAULT_TODOS.map(([t,rel],i)=>({id:Date.now()+i, text:t, due:'', rel, done:false, doneAt:''})),
     // 「理想の1日」は番号つきで持つ（文を書き直しても記録が続くように）
@@ -948,6 +971,46 @@ function renderSaveNote(){
     ? `退職の日まで あと${md.m}か月。この間に ${man(pre)} たまる計算です（いまの生活費を引いたあと）。`
     : `退職の日まで あと${md.m}か月。いまの手取りだと、いまの生活費のほうが多く、${man(-pre)} 減る計算です。`;
 }
+// ---------- 年金の目安（ねんきん定期便が手元にない人向け） ----------
+// 国民年金（基礎年金）の満額：2026年度 ひと月70,608円（日本年金機構）。年度が変わったらここを直す
+const KISO_FULL_MONTH = 7.0608;       // 万円/月
+const KOSEI_RATE = 5.481/1000;        // 厚生年金の給付乗率（2003年4月以降）
+const KOSEI_INCOME_CAP = 1080;        // 計算に入る年収の上限の目安（月65万×12＋ボーナス150万×2）万円
+function pensionEstimate(m){
+  const income=Math.min(Math.max(0,num(m.peIncome)), KOSEI_INCOME_CAP), years=Math.min(Math.max(0,num(m.peYears)), 55);
+  const kisoY = m.peKiso===''||m.peKiso==null ? 40 : Math.min(Math.max(0,num(m.peKiso)), 40);
+  const kiso = KISO_FULL_MONTH*kisoY/40;                 // 万円/月
+  const kosei = income*KOSEI_RATE*years/12;              // 年収×乗率×年数 が年額。12で割ってひと月に
+  const spouse = num(m.peSpouse)===1 ? KISO_FULL_MONTH : 0;
+  return {kiso, kosei, spouse, total:kiso+kosei+spouse, kisoY, capped:num(m.peIncome)>KOSEI_INCOME_CAP, used: num(m.peIncome)>0||num(m.peYears)>0||(m.peKiso!==''&&m.peKiso!=null)||num(m.peSpouse)===1};
+}
+function renderPenEst(){
+  const m=data.money, box=$('peResult'); box.textContent='';
+  const e=pensionEstimate(m);
+  if(!e.used){ const p=document.createElement('div'); p.className='sub'; p.textContent='年収と年数を入れると、ここに目安が出ます。'; box.append(p); return; }
+  if(num(m.peIncome)>0 && !(num(m.peYears)>0)){ const p=document.createElement('div'); p.className='inWarn'; p.textContent='⚠️ 厚生年金に入って働く年数も入れてください。'; box.append(p); }
+  const f=n=>(Math.round(n*10)/10).toFixed(1)+'万円';
+  const ttl=document.createElement('div'); ttl.className='sub'; ttl.textContent='目安（65歳から・ひと月）';
+  const big=document.createElement('div'); big.className='big'; big.style.fontSize='36px'; big.textContent='約 '+f(e.total);
+  box.append(ttl,big);
+  const rows=[[`国民年金（${e.kisoY}年ぶん）`, f(e.kiso)], ['厚生年金', f(e.kosei)]];
+  if(e.spouse) rows.push(['配偶者の国民年金（満額）', f(e.spouse)]);
+  for(const [a,b] of rows){ const r=document.createElement('div'); r.className='row'; const s=document.createElement('span'); s.textContent=a; const v=document.createElement('b'); v.textContent=b; r.append(s,v); box.append(r); }
+  const y=document.createElement('div'); y.className='sub'; y.textContent=`1年では 約${Math.round(e.total*12)}万円。税金や健康保険料が引かれるので、手取りはこれより1〜2割ほど少なくなります。`;
+  box.append(y);
+  if(e.capped){ const w=document.createElement('div'); w.className='inWarn'; w.textContent='⚠️ 年収が高い人は計算に入る額に上限があるため、約1,080万円として計算しました。'; box.append(w); }
+  const btn=document.createElement('button'); btn.className='small'; btn.style.marginTop='8px';
+  const val=Math.round(e.total*10)/10, same=num(m.pension)===val;
+  btn.textContent = same ? '✓ 上の年金の欄に入っています' : `この数字（${val}万円）を、上の年金の欄に入れる`;
+  btn.disabled=same;
+  btn.onclick=()=>{
+    if(num(m.pension)>0 && !confirm(`いま入っている年金の額（${num(m.pension)}万円）を、目安の ${val}万円 に置きかえます。よろしいですか？`)) return;
+    const inp=document.querySelector('[data-m="pension"]'); inp.value=val; inp.dispatchEvent(new Event('input',{bubbles:true}));
+    inp.scrollIntoView({block:'center'});
+  };
+  box.append(btn);
+  if(e.spouse && spouseOn(m)){ const w=document.createElement('div'); w.className='inWarn'; w.textContent='⚠️ 「くわしく入れる」にも配偶者の年金が入っています。二重にならないよう、どちらかだけにしてください。'; box.append(w); }
+}
 function renderPenNote(){
   $('penWho').hidden = !spouseOn(data.money);
   const m=data.money, p=clampPA(m.pensionAge), f=pensionFactor(p);
@@ -1004,7 +1067,7 @@ function renderMoney(){
   const lead=document.createElement('div'); lead.className='sub';
   lead.textContent=`退職してから${num(m.lifeAge)||90}歳までに出ていくお金と、入ってくるお金を足し引きして、いまの資産で足りるかを見ます。`;
   box.append(lead);
-  renderAgeNote(); renderSaveNote(); renderPenNote(); renderParentNote(); renderWorkNote(); renderPenCompare(); renderActuals();
+  renderAgeNote(); renderSaveNote(); renderPenNote(); renderPenEst(); renderParentNote(); renderWorkNote(); renderPenCompare(); renderActuals();
   if(!moneyReady(m)){ const p=document.createElement('div'); p.className='empty'; p.textContent='下の「'+missing(m).join('」「')+'」を入れると計算します。年金と退職金も入れると、より正確になります。'; box.append(p); return; }
   const c=calc(m), up=calc(m, num(m.living)+1);
   // 物価や配偶者の年金が入ると、月の額が途中で変わるので「月○×○年」とは書けない
@@ -1736,6 +1799,7 @@ $('workAdd').onclick=()=>{ if(data.works.length>=WORK_MAX) return; data.works.pu
 function fillMoney(){
   document.querySelectorAll('[data-m]').forEach(inp=>{ const v=data.money[inp.dataset.m]; inp.value = (v===''||v==null)?'':v; });
   document.querySelectorAll('[data-c]').forEach(inp=>{ const v=data.cmp[inp.dataset.c]; inp.value = (v===''||v==null)?'':v; });
+  if(pensionEstimate(data.money).used) $('peBox').open=true;   // 年金の目安を使っている人は、開いたままにする
   // 「くわしく」に何か入っている人は、たたまずに開いておく（年金年齢などの既定値は数えない）
   const m=data.money;
   if(worksOn() || ['otherIn','work','reserve','tax','oneTime','age','spousePension','spouseAt','parentCost','parentYears','parentAt'].some(k=>m[k]!==''&&m[k]!=null) || num(m.pensionAge)!==65 || num(m.lifeAge)!==90 || num(m.infl)>0) $('moreBox').open=true;
@@ -2258,6 +2322,9 @@ const INPUT_CHECKS={
   living:   v=> v>150 ? 'ひと月にしては大きい額です。年の額を入れていませんか？（年312万円なら 26）' : v>0 && v<1 ? '単位は「万円」です。26万円なら 26 と入れます。' : '',
   livingNow:v=> v>150 ? 'ひと月にしては大きい額です。年の額を入れていませんか？（年360万円なら 30）' : v>0 && v<1 ? '単位は「万円」です。30万円なら 30 と入れます。' : '',
   pension:  v=> v>80 ? 'ひと月にしては大きい額です。ねんきん定期便の「年額」を12で割って入れてください。' : '',
+  peIncome: v=> v>0 && v<50 ? '1年ぶんの額を「万円」で入れます。年収450万円なら 450 です。' : v>5000 ? '単位は「万円」です。年収450万円なら 450 と入れます。' : '',
+  peYears:  v=> v>50 ? '50年をこえています。働く年数を確かめてください。' : '',
+  peKiso:   v=> v>40 ? '国民年金は20歳〜60歳の40年が上限です。40年として計算します。' : '',
   work:     v=> v>150 ? 'ひと月にしては大きい額です。年の額を入れていませんか？' : '',
   severance:v=> v>20000 ? '2億円をこえています。単位（万円）を確かめてください。' : v>0 && v<10 ? '単位は「万円」です。1,800万円なら 1800 と入れます。' : '',
   spousePension:v=> v>50 ? 'ひと月にしては大きい額です。年の額を12で割って入れてください。' : '',
