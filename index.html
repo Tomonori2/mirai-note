@@ -208,17 +208,15 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   </div>
   <div class="card" id="newsCard" hidden>
     <h2>✨ 新しくなりました</h2>
-    <div>名前が「<b>未来ノート</b>」になり、<b>からだ</b>の記録ができるようになりました。</div>
+    <div><b>💪からだ</b>タブに「<b>運動</b>」ができました。動いたぶんのカロリーが、食べ物でどれくらいか分かります。</div>
     <ul style="margin:8px 0;padding-left:20px">
-      <li><b>💪からだ</b>タブ：筋トレのメニュー（家・ジム）、血圧（朝・夜・脈拍）と体重のグラフ</li>
-      <li><b>🍵お酒なしの連続日数</b>：毎日「飲まなかった／飲んだ」を1タップ。カレンダーで月の様子と、飲みやすい曜日が分かります</li>
-      <li><b>病院に見せる記録</b>：血圧の4週間ぶんを1枚の画像・印刷に</li>
-      <li><b>😴おつかれの日</b>：夜勤明けや寝不足の日は、軽いメニューに切りかえても連続日数がつながります</li>
-      <li><b>📔ひとこと日記</b>：ホームで気分の絵文字と1行だけ。飲まなかった日と飲んだ日の気分もくらべられます</li>
-      <li><b>🎁ごほうびカード</b>：続けた日数の節目で、1枚ずつ届きます</li>
+      <li><b>🔥動いたカロリー</b>：散歩・筋トレ・ラジオ体操など、したことと時間（または歩数）を入れるだけ</li>
+      <li><b>🍙食べられるもの</b>：「おにぎり 1.2個ぶん」のように、14の食べ物に置きかえて見せます</li>
+      <li><b>📅週のカロリー</b>：今週の合計・先週とのちがい・8週の棒グラフ。週の目標も決められます</li>
+      <li><b>🎮ゲームの要素</b>：カロリー貯金と交換、ランク、ごちそう図鑑、ごほうびカード3枚</li>
     </ul>
     <div class="sub">これまでの数字や記録は、そのまま残っています。</div>
-    <div class="add"><button class="small" id="newsGo">からだを見る</button><button class="ghost small" id="newsClose">閉じる</button></div>
+    <div class="add"><button class="small" id="newsGo">運動を見る</button><button class="ghost small" id="newsClose">閉じる</button></div>
   </div>
   <div class="card" id="cdCard">
     <h2 id="cdTitle">退職の日まで</h2>
@@ -674,6 +672,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <div id="mvStepsBox" hidden>
         <label class="f">歩数（スマホや万歩計の数字）</label>
         <div class="unit"><input type="number" inputmode="numeric" id="mvSteps" placeholder="例：6000"><span>歩</span></div>
+        <div class="sub" id="mvStepsNote">その日の<b>合計</b>を入れてください。同じ日にもう一度入れると、足さずに書きかえます。</div>
       </div>
       <div class="add">
         <input type="date" id="mvDate" style="flex:1 1 160px">
@@ -805,7 +804,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.3';
+const VERSION = 'v5.4';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -865,7 +864,7 @@ function blank(){
     lastBackup: '' };
 }
 // 「新しくなりました」の番号。お知らせの中身を変えたら1つ増やす（前から使っている人に1回だけ出る）
-const NEWS_ID = 1;
+const NEWS_ID = 2;
 function blankBody(){
   return { course:'home',
     trained: {},      // 筋トレをした日 {'2026-09-28':'home'}
@@ -2543,6 +2542,10 @@ function cleanBody(o){
   b.freq = [1,2,3].includes(o.freq) ? o.freq : 2;
   if(Array.isArray(o.moves)) b.moves = o.moves.filter(x=>x&&parseYmd(x.date)&&ACT_BY[x.act]&&nOk(x.min,1,600)!==''&&nOk(x.kcal,0,10000)!=='')
     .map(x=>({date:x.date, act:x.act, min:Number(x.min), steps:nOk(x.steps,1,100000), kcal:Math.round(Number(x.kcal))})).slice(-2000);
+  // 歩数は1日1件（前の版で同じ日に2回入れていたら、多いほうを残す。スマホの歩数は1日の中で増えていくので）
+  const stepBest={};
+  for(const x of b.moves) if(x.act==='steps' && !(stepBest[x.date]?.kcal>=x.kcal)) stepBest[x.date]=x;
+  b.moves = b.moves.filter(x=>x.act!=='steps' || stepBest[x.date]===x);
   if(Array.isArray(o.eats)) b.eats = o.eats.filter(x=>x&&parseYmd(x.date)&&typeof x.food==='string'&&nOk(x.kcal,1,5000)!=='')
     .map(x=>({date:x.date, food:x.food.slice(0,20), kcal:Number(x.kcal)})).slice(-2000);
   b.kcalWt = nOk(o.kcalWt,20,300);
@@ -3317,6 +3320,7 @@ function kcalRank(total){ let i=0; while(i+1<KCAL_RANKS.length && total>=KCAL_RA
 
 // 入力欄の準備（1回だけ）
 for(const a of ACTS){ if(a.hide) continue; const o=document.createElement('option'); o.value=a.id; o.textContent=`${a.em} ${a.n}`; $('mvAct').append(o); }
+$('mvDate').addEventListener('change',()=>renderKcal());
 for(const m of [10,20,30,60]){ const b=kel('button','ghost small',m+'分'); b.onclick=()=>{ $('mvMin').value=m; }; $('mvQuick').append(b); }
 document.querySelectorAll('#mvModeSeg button').forEach(b=>b.onclick=()=>{ mvMode=b.dataset.mv; renderKcal(); });
 document.querySelectorAll('#kcalViewSeg button').forEach(b=>b.onclick=()=>{ kcalView=b.dataset.kv; renderKcal(); });
@@ -3336,10 +3340,15 @@ $('mvAdd').onclick=()=>{
     if(!(min>=1 && min<=600)){ say('時間は 1〜600分 の間で入れてください。', true); return; }
   }
   const kcal=moveKcal(ACT_BY[act].met, min, W.kg), before=kcalStats();
+  // 歩数はスマホなどの「その日の合計」なので1日1件。同じ日にもう一度入れたら書きかえる（足すと二重に数えてしまう）
+  const old = act==='steps' ? B.moves.find(x=>x.date===d && x.act==='steps') : null;
+  if(old) B.moves=B.moves.filter(x=>x!==old);
   B.moves.push({date:d, act, min, steps, kcal});
   save();
   const after=kcalStats(), found=foodsShown().filter(f=>f.k>before.maxDay && f.k<=after.maxDay);
-  say(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
+  if(old){ const dk=kcal-old.kcal;
+    say(`👣 ${mdTxt(d)}の歩数を ${(old.steps||old.min*100).toLocaleString('ja-JP')}歩 → ${steps.toLocaleString('ja-JP')}歩 に書きかえました（${dk>=0?'＋':'−'}${kcalTxt(Math.abs(dk))}）。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:'')); }
+  else say(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
   if(found.length) say('📖 図鑑に新しく見つかりました：'+found.map(f=>f.em+f.n).join('・'));
   const r0=kcalRank(before.total), r1=kcalRank(after.total);
   if(r1>r0) say(`🎉 ランクアップ！「${KCAL_RANKS[r1][1]} ${KCAL_RANKS[r1][2]}」になりました。`);
@@ -3369,6 +3378,8 @@ function renderKcal(){
   }
   document.querySelectorAll('#mvModeSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.mv===mvMode)));
   $('mvTimeBox').hidden = mvMode!=='time'; $('mvStepsBox').hidden = mvMode!=='steps';
+  const sd=B.moves.find(x=>x.act==='steps' && x.date===($('mvDate').value||t));
+  $('mvStepsNote').textContent = sd ? `この日は ${(sd.steps||sd.min*100).toLocaleString('ja-JP')}歩 と記録しています。新しい合計を入れると書きかえます。` : 'その日の合計を入れてください。同じ日にもう一度入れると、足さずに書きかえます。';
 
   // 食べられるもの（きょう／貯金）
   document.querySelectorAll('#kcalViewSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.kv===kcalView)));
@@ -3494,7 +3505,7 @@ function renderWelcome(){ $('welcome').hidden = !!data.welcomed || num(data.mone
 // 前から使っている人に、新しくできたことを1回だけ知らせる（ようこそが出ている間は出さない）
 function renderNews(){ $('newsCard').hidden = data.seenNews===NEWS_ID || !$('welcome').hidden; }
 $('newsClose').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); };
-$('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); };
+$('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('kcal'); };
 
 function fillAll(){ data.livingItems=cleanLivingItems(data.livingItems); data.livingItemsNow=cleanLivingItems(data.livingItemsNow); migrateWork(); fillMoney(); renderWorks(); fillLivingItems(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
 function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); }

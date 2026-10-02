@@ -1,0 +1,11 @@
+{
+  "name": "mirai-note",
+  "private": true,
+  "description": "未来ノートの自動テスト用（アプリ本体は index.html だけで動きます）",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
