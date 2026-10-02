@@ -664,6 +664,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <div id="mvTimeBox">
         <label class="f">したこと</label>
         <select id="mvAct"></select>
+        <div class="sub" id="mvActNote" hidden></div>
         <div class="add">
           <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="numeric" id="mvMin" placeholder="時間"><span>分</span></div>
           <div id="mvQuick" style="display:flex;gap:6px;flex-wrap:wrap"></div>
@@ -804,7 +805,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.4';
+const VERSION = 'v5.5';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -3208,6 +3209,9 @@ const ACTS=[
   {id:'yoga',   em:'🧘', n:'ヨガ・ストレッチ', met:2.5},
   {id:'swim',   em:'🏊', n:'水泳（ゆっくり）', met:6.0},
   {id:'aqua',   em:'🌊', n:'水中ウォーキング', met:4.5},
+  // サーフィンのメッツは、波待ちの時間もふくめた平均（ボディボードも同じ）
+  {id:'surf',   em:'🏄', n:'サーフィン（のんびり）', met:3.0, note:'海に入っていた時間（波待ちもふくむ）で入れてください。ボディボードも同じです。'},
+  {id:'surf2',  em:'🏄', n:'サーフィン（たくさん波に乗る）', met:5.0, note:'パドルや波乗りが多く、休みが少ない日はこちら。海に入っていた時間で入れてください。'},
   {id:'golf',   em:'⛳', n:'ゴルフ（歩いて回る）', met:4.3},
   {id:'garden', em:'🌱', n:'庭仕事・草とり', met:3.5},
   {id:'clean',  em:'🧹', n:'掃除（掃除機・床ふき）', met:3.3},
@@ -3321,6 +3325,9 @@ function kcalRank(total){ let i=0; while(i+1<KCAL_RANKS.length && total>=KCAL_RA
 // 入力欄の準備（1回だけ）
 for(const a of ACTS){ if(a.hide) continue; const o=document.createElement('option'); o.value=a.id; o.textContent=`${a.em} ${a.n}`; $('mvAct').append(o); }
 $('mvDate').addEventListener('change',()=>renderKcal());
+// 入れ方にコツがある種類（サーフィンなど）は、選んだときに説明を出す
+function renderActNote(){ const a=ACT_BY[$('mvAct').value], n=$('mvActNote'); n.hidden=!a?.note; n.textContent=a?.note||''; }
+$('mvAct').addEventListener('change',renderActNote);
 for(const m of [10,20,30,60]){ const b=kel('button','ghost small',m+'分'); b.onclick=()=>{ $('mvMin').value=m; }; $('mvQuick').append(b); }
 document.querySelectorAll('#mvModeSeg button').forEach(b=>b.onclick=()=>{ mvMode=b.dataset.mv; renderKcal(); });
 document.querySelectorAll('#kcalViewSeg button').forEach(b=>b.onclick=()=>{ kcalView=b.dataset.kv; renderKcal(); });

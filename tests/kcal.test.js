@@ -154,3 +154,25 @@ test('週の目標に届くと、お祝いとカードが出る', async () => {
   assert.deepEqual(errors, []);
   await close();
 });
+
+test('サーフィン：選ぶと入れ方の説明が出て、2時間で260kcal（体重62kg・3メッツ）', async () => {
+  const { page, errors, close } = await openApp(user());
+  await openKcal(page);
+  assert.equal(await page.isVisible('#mvActNote'), false);
+  await page.selectOption('#mvAct', 'surf');
+  assert.match(await page.textContent('#mvActNote'), /波待ちもふくむ/);
+  await page.fill('#mvMin', '120');
+  await page.click('#mvAdd');
+  assert.match(await page.textContent('#mvMsg'), /＋260kcal/);
+  assert.match(await page.textContent('#kcalList'), /🏄 サーフィン（のんびり） 120分/);
+  // たくさん波に乗る日は5メッツ：60分で 4×62×1×1.05 = 260kcal
+  await page.selectOption('#mvAct', 'surf2');
+  await page.fill('#mvMin', '60');
+  await page.click('#mvAdd');
+  assert.equal(await page.evaluate(() => kcalOn(todayYmd())), 520);
+  // ほかの種類にもどすと、説明は消える
+  await page.selectOption('#mvAct', 'walk');
+  assert.equal(await page.isVisible('#mvActNote'), false);
+  assert.deepEqual(errors, []);
+  await close();
+});
