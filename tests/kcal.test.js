@@ -176,3 +176,70 @@ test('サーフィン：選ぶと入れ方の説明が出て、2時間で260kcal
   assert.deepEqual(errors, []);
   await close();
 });
+
+test('ランニング（速め）：選ぶと説明が出て、30分で286kcal（体重62kg・9.8メッツ）', async () => {
+  const { page, errors, close } = await openApp(user());
+  await openKcal(page);
+  await page.selectOption('#mvAct', 'run');
+  assert.match(await page.textContent('#mvActNote'), /1kmを6分くらい/);
+  await page.fill('#mvMin', '30');
+  await page.click('#mvAdd');
+  assert.match(await page.textContent('#mvMsg'), /＋286kcal/);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('「運動」で筋トレを記録すると、筋トレの「きょうやった」にも印がつく', async () => {
+  const { page, errors, close } = await openApp(user());
+  await openKcal(page);
+  await page.selectOption('#mvAct', 'muscle2');
+  await page.fill('#mvMin', '45');
+  await page.click('#mvAdd');
+  assert.match(await page.textContent('#mvMsg'), /筋トレの「きょうやった」にも印をつけました/);
+  assert.ok(await page.evaluate(() => !!data.body.trained[todayYmd()]));
+  // もう印がついている日に、もう1回入れても、お知らせは出ない
+  await page.selectOption('#mvAct', 'muscle');
+  await page.fill('#mvMin', '15');
+  await page.click('#mvAdd');
+  assert.doesNotMatch(await page.textContent('#mvMsg'), /印をつけました/);
+  // 散歩では印はつかない
+  await page.fill('#mvDate', '2026-10-01');
+  await page.selectOption('#mvAct', 'walk');
+  await page.fill('#mvMin', '30');
+  await page.click('#mvAdd');
+  assert.equal(await page.evaluate(() => !!data.body.trained['2026-10-01']), false);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレの「きょうやった」を押すと、何分かを1タップで「運動」にも記録できる', async () => {
+  const { page, errors, close } = await openApp(user());   // コースは「家で・道具なし」
+  await page.click('nav button[data-tab="body"]');
+  // 押す前は、カロリーのボタンは出ない
+  assert.doesNotMatch(await page.textContent('#trainDone'), /カロリーも記録しますか/);
+  await page.click('#trainDone button.hb');
+  assert.match(await page.textContent('#trainDone'), /カロリーも記録しますか？.*筋トレ（軽め・家で）/);
+  await page.click('#trainDone button:has-text("30分")');
+  const moves = await page.evaluate(() => data.body.moves);
+  assert.equal(moves.length, 1);
+  assert.equal(moves[0].act, 'muscle');
+  assert.equal(moves[0].kcal, 81);                           // 2.5×62×0.5×1.05
+  const box = await page.textContent('#trainDone');
+  assert.match(box, /＋81kcal/);
+  assert.match(box, /きょうの筋トレ 30分・81kcal/);
+  assert.doesNotMatch(box, /カロリーも記録しますか/);        // 2回入れないように、ボタンは消える
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('ジムのコースなら「しっかり」で記録する。体重が無いと案内が出る', async () => {
+  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2, body: { course: 'gym1' } });
+  await page.click('nav button[data-tab="body"]');
+  await page.click('#trainDone button.hb');
+  assert.match(await page.textContent('#trainDone'), /筋トレ（しっかり・ジムで）/);
+  await page.click('#trainDone button:has-text("45分")');
+  assert.match(await page.textContent('#trainDone'), /先に体重を入れてください/);
+  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
+  assert.deepEqual(errors, []);
+  await close();
+});
