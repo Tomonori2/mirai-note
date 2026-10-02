@@ -805,7 +805,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.5';
+const VERSION = 'v5.6';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -2641,6 +2641,7 @@ function renderCourse(){
   btn.append(mk,t,wk);
   btn.onclick=()=>toggleTrained(todayYmd());
   box2.append(btn);
+  if(on) box2.append(trainKcalBox());
   // この1週間：押し忘れた日をあとから付けられる
   const wk7=document.createElement('div'); wk7.style.cssText='display:flex;gap:6px;margin-top:8px';
   for(let k=6;k>=0;k--){
@@ -2656,6 +2657,29 @@ function renderCourse(){
   const hint=document.createElement('div'); hint.className='sub'; hint.textContent='押し忘れた日は、上の日付を押すと記録できます（もう一度押すと取り消し）。'; box2.append(hint);
   const total=Object.keys(B.trained).length;
   if(total){ const s=document.createElement('div'); s.className='sub'; s.textContent=`これまでに ${total}回。`+(weekTrained()>=2?'今週はもう十分です。休むのも大事なメニューです。':''); box2.append(s); }
+}
+// 「きょうやった」を押した日に、何分やったかを1タップで「運動」にも記録する
+let trainKcalMsg=[];
+function trainKcalBox(){
+  const B=data.body, t=todayYmd(), box=kel('div','note'), act=muscleAct(B.course), a=ACT_BY[act];
+  const done=B.moves.filter(x=>x.date===t && MUSCLE_ACTS.includes(x.act));
+  for(const m of trainKcalMsg) box.append(kel('div',null,m));
+  trainKcalMsg=[];
+  if(done.length){
+    const k=done.reduce((s,x)=>s+x.kcal,0), mn=done.reduce((s,x)=>s+x.min,0);
+    box.append(kel('div',null,`🔥 きょうの筋トレ ${mn}分・${kcalTxt(k)}（${foodEq(k)}ぶん）を「運動」に記録しています。`));
+    return box;
+  }
+  box.append(kel('div',null,`🔥 カロリーも記録しますか？ 何分やったかを押すと「運動」に入ります（${a.em}${a.n}）。`));
+  const row=kel('div','add');
+  for(const m of [15,30,45,60]){ const b=kel('button','ghost small',m+'分');
+    b.onclick=()=>{ const W=bodyWt();
+      if(!W){ trainKcalMsg=['先に体重を入れてください。「運動」の画面で入れられます。']; renderCourse(); return; }
+      trainKcalMsg=recordMove(t, act, m, '', W.kg).filter(x=>!x.startsWith('🏋️'));
+      checkCards(); renderBodyAll(); };
+    row.append(b); }
+  box.append(row);
+  return box;
 }
 function toggleTrained(d){
   const B=data.body; if(B.trained[d]) delete B.trained[d]; else B.trained[d]=B.course;
@@ -3200,7 +3224,8 @@ function renderNewCard(){
 const ACTS=[
   {id:'walk',   em:'🚶', n:'散歩（ふつうに歩く）', met:3.0},
   {id:'brisk',  em:'👟', n:'早歩き', met:4.3},
-  {id:'jog',    em:'🏃', n:'ジョギング', met:7.0},
+  {id:'jog',    em:'🏃', n:'ジョギング（ゆっくり）', met:7.0},
+  {id:'run',    em:'🏃‍♂️', n:'ランニング（速め・1km 6分くらい）', met:9.8, note:'1kmを6分くらい（時速10km）で走ったとき。もっとゆっくりなら「ジョギング」を選んでください。'},
   {id:'bike',   em:'🚲', n:'自転車（ふつうの速さ）', met:4.0},
   {id:'stairs', em:'⬆️', n:'階段をのぼる', met:4.0},
   {id:'radio',  em:'🙆', n:'ラジオ体操', met:4.0},
@@ -3219,6 +3244,9 @@ const ACTS=[
   {id:'steps',  em:'👣', n:'歩いた（歩数から）', met:3.0, hide:true},
 ];
 const ACT_BY=Object.fromEntries(ACTS.map(a=>[a.id,a]));
+const MUSCLE_ACTS=['muscle','muscle2'];
+// 筋トレのコースに合う「運動」の種類（家なら軽め、ジムならしっかり）
+function muscleAct(course){ return course==='home' ? 'muscle' : 'muscle2'; }
 // 食べ物のカロリーはだいたい（日本食品標準成分表などの、よくある大きさ）
 const FOODS=[
   {id:'mikan',  em:'🍊', n:'みかん', u:'個', k:45},
@@ -3346,22 +3374,32 @@ $('mvAdd').onclick=()=>{
     act=$('mvAct').value; min=Math.round(Number($('mvMin').value));
     if(!(min>=1 && min<=600)){ say('時間は 1〜600分 の間で入れてください。', true); return; }
   }
-  const kcal=moveKcal(ACT_BY[act].met, min, W.kg), before=kcalStats();
+  for(const m of recordMove(d, act, min, steps, W.kg)) say(m);
+  $('mvMin').value=''; $('mvSteps').value='';
+  checkCards(); renderBodyAll();
+};
+// 動いた記録を1件入れて、お知らせの文を返す（「運動」の入力と、筋トレの「きょうやった」の両方から使う）
+function recordMove(d, act, min, steps, kg){
+  const B=data.body, t=todayYmd(), out=[];
+  const kcal=moveKcal(ACT_BY[act].met, min, kg), before=kcalStats();
   // 歩数はスマホなどの「その日の合計」なので1日1件。同じ日にもう一度入れたら書きかえる（足すと二重に数えてしまう）
   const old = act==='steps' ? B.moves.find(x=>x.date===d && x.act==='steps') : null;
   if(old) B.moves=B.moves.filter(x=>x!==old);
   B.moves.push({date:d, act, min, steps, kcal});
+  // 筋トレをしたら、筋トレの「きょうやった」にも印をつける（2か所で押さなくてすむように）
+  const markTrain = MUSCLE_ACTS.includes(act) && !B.trained[d];
+  if(markTrain) B.trained[d]=B.course;
   save();
   const after=kcalStats(), found=foodsShown().filter(f=>f.k>before.maxDay && f.k<=after.maxDay);
   if(old){ const dk=kcal-old.kcal;
-    say(`👣 ${mdTxt(d)}の歩数を ${(old.steps||old.min*100).toLocaleString('ja-JP')}歩 → ${steps.toLocaleString('ja-JP')}歩 に書きかえました（${dk>=0?'＋':'−'}${kcalTxt(Math.abs(dk))}）。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:'')); }
-  else say(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
-  if(found.length) say('📖 図鑑に新しく見つかりました：'+found.map(f=>f.em+f.n).join('・'));
+    out.push(`👣 ${mdTxt(d)}の歩数を ${(old.steps||old.min*100).toLocaleString('ja-JP')}歩 → ${steps.toLocaleString('ja-JP')}歩 に書きかえました（${dk>=0?'＋':'−'}${kcalTxt(Math.abs(dk))}）。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:'')); }
+  else out.push(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
+  if(markTrain) out.push(`🏋️ 筋トレの「${d===t?'きょうやった':mdTxt(d)+'にやった'}」にも印をつけました。`);
+  if(found.length) out.push('📖 図鑑に新しく見つかりました：'+found.map(f=>f.em+f.n).join('・'));
   const r0=kcalRank(before.total), r1=kcalRank(after.total);
-  if(r1>r0) say(`🎉 ランクアップ！「${KCAL_RANKS[r1][1]} ${KCAL_RANKS[r1][2]}」になりました。`);
-  $('mvMin').value=''; $('mvSteps').value='';
-  checkCards(); renderKcal(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary();
-};
+  if(r1>r0) out.push(`🎉 ランクアップ！「${KCAL_RANKS[r1][1]} ${KCAL_RANKS[r1][2]}」になりました。`);
+  return out;
+}
 function eatFood(f){
   const B=data.body, st=kcalStats();
   if(st.bank<f.k) return;
