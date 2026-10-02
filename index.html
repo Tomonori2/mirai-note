@@ -148,6 +148,17 @@ body.sum{padding-bottom:0}
 .msg.bot{background:var(--card);border:1px solid var(--line);margin-right:12px}
 .msg.wait{color:var(--sub)}
 .msg .todoAdd{display:block;margin-top:8px;white-space:normal;text-align:left}
+.foods{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px}
+.foods>div{border:1px solid var(--line);border-radius:12px;padding:8px 10px;color:var(--sub)}
+.foods>div.ok{background:var(--main-soft);border-color:var(--main);color:var(--ink)}
+.foods .e{font-size:28px;line-height:1.2}
+.foods .e.dim{filter:grayscale(1);opacity:.45}
+.foods .c{font-weight:800;font-size:18px;color:var(--main)}
+.foods button{margin-top:6px;width:100%}
+.wk{display:flex;gap:4px;align-items:flex-end;height:110px;margin-top:10px}
+.wk>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:12px;color:var(--sub)}
+.wk i{display:block;width:70%;background:var(--main);border-radius:4px 4px 0 0;min-height:2px}
+.wk .t{color:var(--ink);font-weight:700}
 .ex{padding:10px 0;border-bottom:1px dashed var(--line)}
 .ex:last-child{border-bottom:0}
 .ex .n{font-weight:700}
@@ -511,6 +522,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <button data-bt="menu" aria-pressed="true">筋トレ</button>
       <button data-bt="rec" aria-pressed="false">血圧・体重</button>
       <button data-bt="sober" aria-pressed="false">お酒</button>
+      <button data-bt="kcal" aria-pressed="false">運動</button>
     </div>
     <div id="bodyNag"></div>
   </div>
@@ -641,6 +653,57 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       </div>
     </div>
   </div>
+
+  <div data-bp="kcal" hidden>
+    <div class="card">
+      <h2>🔥 動いたぶんで、なにが食べられる？</h2>
+      <div class="sub">歩いた・体を動かした時間を入れると、使ったカロリーの目安と、それがどんな食べ物の分になるかを出します。動くほど「ごちそう図鑑」が埋まっていきます。</div>
+      <div id="kcalWtBox"></div>
+      <div class="seg" id="mvModeSeg">
+        <button data-mv="time" aria-pressed="true">時間で入れる</button>
+        <button data-mv="steps" aria-pressed="false">歩数で入れる</button>
+      </div>
+      <div id="mvTimeBox">
+        <label class="f">したこと</label>
+        <select id="mvAct"></select>
+        <div class="add">
+          <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="numeric" id="mvMin" placeholder="時間"><span>分</span></div>
+          <div id="mvQuick" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div id="mvStepsBox" hidden>
+        <label class="f">歩数（スマホや万歩計の数字）</label>
+        <div class="unit"><input type="number" inputmode="numeric" id="mvSteps" placeholder="例：6000"><span>歩</span></div>
+      </div>
+      <div class="add">
+        <input type="date" id="mvDate" style="flex:1 1 160px">
+        <button id="mvAdd">記録する</button>
+      </div>
+      <div id="mvMsg"></div>
+    </div>
+    <div class="card">
+      <div class="seg" id="kcalViewSeg" style="margin-top:0">
+        <button data-kv="today" aria-pressed="true">きょうの分</button>
+        <button data-kv="bank" aria-pressed="false">カロリー貯金</button>
+      </div>
+      <div id="kcalFoods"></div>
+    </div>
+    <div class="card">
+      <h2>🏅 動いた合計とランク</h2>
+      <div id="kcalRank"></div>
+    </div>
+    <div class="card">
+      <h2>この7日</h2>
+      <div id="kcalWeek"></div>
+      <div id="kcalList"></div>
+    </div>
+    <div class="card">
+      <h2>📖 ごちそう図鑑</h2>
+      <div class="sub">1日で動いた分が、その食べ物のカロリーに届くと見つかります。</div>
+      <div id="kcalDex"></div>
+    </div>
+    <div class="note">数字は「メッツ（安静のときの何倍エネルギーを使うか）」から出した目安です。ふだん座っていても使う分は引いて、<b>動いたことで余分に使った分</b>だけを数えています（（メッツ−1）×体重×時間×1.05）。人や強さで変わります。<br>「食べていい量」を決めるものではありません。食べずに貯金しておくのも、もちろんOKです。食事の制限を言われている人は、医師の話を優先してください。</div>
+  </div>
 </section>
 
 <!-- 設定 -->
@@ -737,7 +800,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.1';
+const VERSION = 'v5.2';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -807,7 +870,10 @@ function blankBody(){
     soberOn: false, soberStart: '', soberCost: '', drank: [],  // お酒なし（飲んだ日）
     soberOk: [],      // 「飲まなかった」と押した日（押していない日も、連続日数では飲まなかった扱い）
     goals: {},        // 種目ごとの目標（1回だけ挙がりそうな重さ）{'ベンチプレス':60}
-    freq: 2 };        // のびしろ予測で使う「週に何回やるか」（1〜3）
+    freq: 2,          // のびしろ予測で使う「週に何回やるか」（1〜3）
+    moves: [],        // 動いた記録 [{date, act, min, steps, kcal}]（kcal は記録したときの体重で計算して残す）
+    eats: [],         // カロリー貯金と交換した食べ物 [{date, food, kcal}]
+    kcalWt: '' };     // 体重の記録が無い人の、カロリー計算用の体重
 }
 // おつかれの日（夜勤明け・寝不足の日）の軽いメニュー。番号はマイナスにして「理想の1日」と重ならないようにする
 const EASY_DAY = [
@@ -2391,6 +2457,7 @@ function dayTags(d){
   const B=data.body, L=[];
   const st=soberState(d); if(st==='no') L.push('🍵飲まなかった'); else if(st==='yes') L.push('🍺飲んだ');
   if(B.trained[d]) L.push('🏋️筋トレ');
+  const kc=kcalOn(d); if(kc) L.push(`🔥${kc}kcal`);
   const r=B.rec.find(x=>x.date===d); if(r && hasBp(r)){ const b=bpReadings(r)[0]; L.push(`🩺${b.sys}/${b.dia}`); }
   if(data.tired[d]) L.push('😴おつかれの日');
   const n=(data.log[d]||[]).length; if(n) L.push(`✓ならし${n}`);
@@ -2468,6 +2535,11 @@ function cleanBody(o){
   if(o.goals && typeof o.goals==='object' && !Array.isArray(o.goals))
     for(const [k,v] of Object.entries(o.goals)){ const n=nOk(v,1,500); if(typeof k==='string' && k.trim() && n!=='') b.goals[k.trim().slice(0,30)]=n; }
   b.freq = [1,2,3].includes(o.freq) ? o.freq : 2;
+  if(Array.isArray(o.moves)) b.moves = o.moves.filter(x=>x&&parseYmd(x.date)&&ACT_BY[x.act]&&nOk(x.min,1,600)!==''&&nOk(x.kcal,0,10000)!=='')
+    .map(x=>({date:x.date, act:x.act, min:Number(x.min), steps:nOk(x.steps,1,100000), kcal:Math.round(Number(x.kcal))})).slice(-2000);
+  if(Array.isArray(o.eats)) b.eats = o.eats.filter(x=>x&&parseYmd(x.date)&&typeof x.food==='string'&&nOk(x.kcal,1,5000)!=='')
+    .map(x=>({date:x.date, food:x.food.slice(0,20), kcal:Number(x.kcal)})).slice(-2000);
+  b.kcalWt = nOk(o.kcalWt,20,300);
   return b;
 }
 
@@ -3020,6 +3092,8 @@ function cardStats(){
     // 筋トレの目標に届いた種目があるか／いちばん高いレベル
     goalHit: Object.entries(data.body.goals).some(([n,g])=>best1rm(n)>=g),
     liftLv: Math.max(0, ...[...new Set(data.body.lifts.map(x=>x.name))].map(n=>liftLevel(liftDays(n)).lv)),
+    // 動いたカロリーの合計／ごちそう図鑑で見つけた数
+    ...(({total,dex})=>({kcal:total, dex}))(kcalStats()),
   };
 }
 const CARDS=[
@@ -3049,6 +3123,10 @@ const CARDS=[
    text:'重さは、毎回少しずつで十分。同じ重さで回数が増えたら、次の重さに進むサインです。'},
   {id:'c19', em:'🎯', t:'目標の重さに到達', cond:s=>s.goalHit, hint:'のびしろ予測で決めた目標の重さに届く',
    text:'目標に届いたら、次は少し先に。届かない時期も、続けていること自体が力になっています。'},
+  {id:'c20', em:'🔥', t:'動いて 1,000kcal', cond:s=>s.kcal>=1000, hint:'からだ→運動で動いた分を合計1,000kcalに',
+   text:'1日10分でも、毎日なら1か月で300分。こまめに動くことも、まとまった運動と同じように体に効きます。'},
+  {id:'c21', em:'📖', t:'ごちそう図鑑 7品', cond:s=>s.dex>=7, hint:'ごちそう図鑑で7品見つける',
+   text:'動いたあとのごはんは、たんぱく質（肉・魚・卵・豆）をひと品足すと、筋肉の材料になります。'},
   {id:'c12', em:'🌕', t:'できた日 30日', cond:s=>s.days>=30, hint:'できた日を30日に',
    text:'1か月つづいた習慣は、もう暮らしの一部です。理想の1日に、ひとつ足してみませんか。'},
   {id:'c13', em:'💴', t:'お酒なし 1か月', cond:s=>s.sober>=30, hint:'お酒なしで30日',
@@ -3104,11 +3182,215 @@ function renderNewCard(){
   b.append(ok,all); box.append(h,t,x,b);
 }
 
+// ---------- 動いたぶんのカロリーと、食べられるもの（ゲーム） ----------
+// メッツ＝安静にしているときの何倍のエネルギーを使うか（国立健康・栄養研究所「改訂版 身体活動のメッツ表」から）
+const ACTS=[
+  {id:'walk',   em:'🚶', n:'散歩（ふつうに歩く）', met:3.0},
+  {id:'brisk',  em:'👟', n:'早歩き', met:4.3},
+  {id:'jog',    em:'🏃', n:'ジョギング', met:7.0},
+  {id:'bike',   em:'🚲', n:'自転車（ふつうの速さ）', met:4.0},
+  {id:'stairs', em:'⬆️', n:'階段をのぼる', met:4.0},
+  {id:'radio',  em:'🙆', n:'ラジオ体操', met:4.0},
+  {id:'muscle', em:'🏋️', n:'筋トレ（軽め・家で）', met:3.5},
+  {id:'muscle2',em:'💪', n:'筋トレ（しっかり・ジムで）', met:6.0},
+  {id:'yoga',   em:'🧘', n:'ヨガ・ストレッチ', met:2.5},
+  {id:'swim',   em:'🏊', n:'水泳（ゆっくり）', met:6.0},
+  {id:'aqua',   em:'🌊', n:'水中ウォーキング', met:4.5},
+  {id:'golf',   em:'⛳', n:'ゴルフ（歩いて回る）', met:4.3},
+  {id:'garden', em:'🌱', n:'庭仕事・草とり', met:3.5},
+  {id:'clean',  em:'🧹', n:'掃除（掃除機・床ふき）', met:3.3},
+  // 歩数から入れたとき（1分に100歩・ふつうの歩き）。選ぶ欄には出さない
+  {id:'steps',  em:'👣', n:'歩いた（歩数から）', met:3.0, hide:true},
+];
+const ACT_BY=Object.fromEntries(ACTS.map(a=>[a.id,a]));
+// 食べ物のカロリーはだいたい（日本食品標準成分表などの、よくある大きさ）
+const FOODS=[
+  {id:'mikan',  em:'🍊', n:'みかん', u:'個', k:45},
+  {id:'cookie', em:'🍪', n:'クッキー', u:'枚', k:50},
+  {id:'senbei', em:'🍘', n:'おせんべい', u:'枚', k:75},
+  {id:'banana', em:'🍌', n:'バナナ', u:'本', k:90},
+  {id:'dango',  em:'🍡', n:'おだんご', u:'本', k:120},
+  {id:'beer',   em:'🍺', n:'ビール（350ml）', u:'本', k:140, sake:true},  // お酒なしを数えている人には出さない
+  {id:'onigiri',em:'🍙', n:'おにぎり', u:'個', k:180},
+  {id:'ice',    em:'🍨', n:'カップアイス', u:'個', k:200},
+  {id:'nikuman',em:'🥟', n:'肉まん', u:'個', k:240},
+  {id:'donut',  em:'🍩', n:'ドーナツ', u:'個', k:250},
+  {id:'choco',  em:'🍫', n:'板チョコ', u:'枚', k:280},
+  {id:'cake',   em:'🍰', n:'ショートケーキ', u:'個', k:320},
+  {id:'ramen',  em:'🍜', n:'ラーメン', u:'杯', k:500},
+  {id:'curry',  em:'🍛', n:'カレーライス', u:'皿', k:700},
+];
+const FOOD_BY=Object.fromEntries(FOODS.map(f=>[f.id,f]));
+const KCAL_RANKS=[[0,'🌱','はじめの一歩'],[1000,'🚶','おさんぽ名人'],[3000,'🏃','よく動く人'],[7000,'⛰️','山のぼり級'],[15000,'🗻','富士山級'],[30000,'🏆','鉄人']];
+let mvMode='time', kcalView='today', kcalMsg='';
+function kel(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+function mdTxt(d){ const t=parseYmd(d); return (t.getMonth()+1)+'/'+t.getDate(); }
+function kcalTxt(n){ return Math.round(n).toLocaleString('ja-JP')+'kcal'; }
+// 体重：血圧・体重タブの最新の記録。無ければ、ここで入れた体重
+function bodyWt(){
+  const w=data.body.rec.filter(x=>x.wt!=='').sort((a,b)=>a.date<b.date?-1:1).at(-1);
+  if(w) return {kg:w.wt, from:'rec'};
+  return data.body.kcalWt!=='' ? {kg:data.body.kcalWt, from:'self'} : null;
+}
+// 動いたことで余分に使った分（ふだん座っていても使う1メッツ分は引く）
+function moveKcal(met, min, kg){ return Math.round((met-1)*kg*min/60*1.05); }
+function kcalOn(d){ return data.body.moves.reduce((s,x)=>s+(x.date===d?x.kcal:0),0); }
+function foodsShown(){ return FOODS.filter(f=>!(f.sake && data.body.soberOn)); }
+function kcalStats(){
+  const B=data.body, byDay={};
+  for(const x of B.moves) byDay[x.date]=(byDay[x.date]||0)+x.kcal;
+  const total=Object.values(byDay).reduce((s,v)=>s+v,0), spent=B.eats.reduce((s,x)=>s+x.kcal,0);
+  const maxDay=Math.max(0,...Object.values(byDay));
+  return {byDay, total, bank:Math.max(0,total-spent), maxDay, dex:foodsShown().filter(f=>f.k<=maxDay).length};
+}
+// 何個ぶんか（0.1きざみで切り捨て。多めに言わないように）
+function foodCount(k,f){ const n=Math.floor(k/f.k*10)/10; return n>=10 ? Math.floor(n) : n; }
+// いちばん大きく言える食べ物で「○○ 1.4個ぶん」
+function foodEq(k){
+  const fs=FOODS.filter(x=>!x.sake), f=fs.filter(x=>x.k<=k).at(-1) || fs[0];   // たとえにはお酒を使わない
+  return `${f.em}${f.n} ${foodCount(k,f)}${f.u}`;
+}
+function kcalRank(total){ let i=0; while(i+1<KCAL_RANKS.length && total>=KCAL_RANKS[i+1][0]) i++; return i; }
+
+// 入力欄の準備（1回だけ）
+for(const a of ACTS){ if(a.hide) continue; const o=document.createElement('option'); o.value=a.id; o.textContent=`${a.em} ${a.n}`; $('mvAct').append(o); }
+for(const m of [10,20,30,60]){ const b=kel('button','ghost small',m+'分'); b.onclick=()=>{ $('mvMin').value=m; }; $('mvQuick').append(b); }
+document.querySelectorAll('#mvModeSeg button').forEach(b=>b.onclick=()=>{ mvMode=b.dataset.mv; renderKcal(); });
+document.querySelectorAll('#kcalViewSeg button').forEach(b=>b.onclick=()=>{ kcalView=b.dataset.kv; renderKcal(); });
+$('mvAdd').onclick=()=>{
+  const B=data.body, t=todayYmd(), W=bodyWt(), msg=$('mvMsg'); msg.textContent='';
+  const say=(text,warn)=>msg.append(kel('div','note'+(warn?' warn':''),text));
+  if(!W){ say('先に体重を入れてください（使うカロリーは体重で変わります）。', true); $('kcalWtIn')?.focus(); return; }
+  const d=$('mvDate').value;
+  if(!parseYmd(d) || d>t){ say('日付を確かめてください（先の日は入れられません）。', true); return; }
+  let act, min, steps='';
+  if(mvMode==='steps'){
+    steps=Math.round(Number($('mvSteps').value));
+    if(!(steps>=100 && steps<=60000)){ say('歩数は 100〜60,000 の間で入れてください。', true); return; }
+    act='steps'; min=Math.max(1, Math.round(steps/100));
+  }else{
+    act=$('mvAct').value; min=Math.round(Number($('mvMin').value));
+    if(!(min>=1 && min<=600)){ say('時間は 1〜600分 の間で入れてください。', true); return; }
+  }
+  const kcal=moveKcal(ACT_BY[act].met, min, W.kg), before=kcalStats();
+  B.moves.push({date:d, act, min, steps, kcal});
+  save();
+  const after=kcalStats(), found=foodsShown().filter(f=>f.k>before.maxDay && f.k<=after.maxDay);
+  say(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
+  if(found.length) say('📖 図鑑に新しく見つかりました：'+found.map(f=>f.em+f.n).join('・'));
+  const r0=kcalRank(before.total), r1=kcalRank(after.total);
+  if(r1>r0) say(`🎉 ランクアップ！「${KCAL_RANKS[r1][1]} ${KCAL_RANKS[r1][2]}」になりました。`);
+  $('mvMin').value=''; $('mvSteps').value='';
+  checkCards(); renderKcal(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary();
+};
+function eatFood(f){
+  const B=data.body, st=kcalStats();
+  if(st.bank<f.k) return;
+  B.eats.push({date:todayYmd(), food:f.id, kcal:f.k}); save();
+  kcalMsg=`${f.em} ${f.n}と交換しました！ のこりの貯金は ${kcalTxt(st.bank-f.k)}。`;
+  renderKcal();
+}
+function renderKcal(){
+  const B=data.body, t=todayYmd(), S=kcalStats(), W=bodyWt();
+  if(!$('mvDate').value) $('mvDate').value=t;
+  $('mvDate').max=t;
+  // 体重
+  const wb=$('kcalWtBox'); wb.textContent='';
+  if(W && W.from==='rec') wb.append(kel('div','sub',`体重 ${kgTxt(W.kg)} で計算します（血圧・体重タブのいちばん新しい記録）。`));
+  else{
+    wb.append(kel('label','f','体重（カロリーの計算に使います）'));
+    const u=kel('div','unit'), i=kel('input'); i.type='number'; i.inputMode='decimal'; i.id='kcalWtIn'; i.placeholder='例：62'; i.value=B.kcalWt;
+    i.addEventListener('change',()=>{ const v=Number(i.value); B.kcalWt = i.value.trim()!=='' && v>=20 && v<=300 ? v : ''; save(); renderKcal(); });
+    u.append(i, kel('span',null,'kg')); wb.append(u);
+    wb.append(kel('div','sub','血圧・体重タブで体重を記録すると、そちらを使います。'));
+  }
+  document.querySelectorAll('#mvModeSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.mv===mvMode)));
+  $('mvTimeBox').hidden = mvMode!=='time'; $('mvStepsBox').hidden = mvMode!=='steps';
+
+  // 食べられるもの（きょう／貯金）
+  document.querySelectorAll('#kcalViewSeg button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.kv===kcalView)));
+  const fb=$('kcalFoods'); fb.textContent='';
+  const k = kcalView==='today' ? kcalOn(t) : S.bank;
+  fb.append(kel('div','sub', kcalView==='today' ? 'きょう動いて使ったカロリー' : 'カロリー貯金（これまで動いた分 − 交換した分）'));
+  const big=kel('div','big',Math.round(k).toLocaleString('ja-JP')); big.append(kel('small',null,'kcal')); big.style.fontSize='48px'; fb.append(big);
+  if(kcalView==='today') fb.append(kel('div','sub', k ? `${foodEq(k)}ぶん動きました。色がついたものが、きょうの分で食べられる目安です。` : 'まだ記録がありません。上で入れると、食べられるものに色がつきます。'));
+  else fb.append(kel('div','sub','食べ物を選ぶと、貯金から引きます（ゲームの「交換」です。食べずに貯めておいてもOK）。'));
+  if(kcalView==='bank' && kcalMsg){ fb.append(kel('div','note',kcalMsg)); kcalMsg=''; }
+  const g=kel('div','foods');
+  for(const f of foodsShown()){
+    const ok=k>=f.k, c=kel('div', ok?'ok':'');
+    const e=kel('div','e'+(ok?'':' dim'), f.em); c.append(e, kel('div',null,f.n));
+    if(ok) c.append(kel('div','c', `${foodCount(k,f)}${f.u}`));
+    else{ c.append(kel('div','sub',`あと ${kcalTxt(f.k-k)}`)); const bar=kel('div','bar'), i=kel('i'); i.style.width=Math.round(k/f.k*100)+'%'; bar.append(i); c.append(bar); }
+    if(kcalView==='bank' && ok){ const b=kel('button','small',`交換する（−${f.k}）`); b.onclick=()=>eatFood(f); c.append(b); }
+    g.append(c);
+  }
+  fb.append(g);
+  if(kcalView==='bank' && B.eats.length){
+    const h=kel('div',null,'交換したもの'); h.style.cssText='font-weight:700;margin-top:14px'; fb.append(h);
+    for(const x of B.eats.slice(-5).reverse()){
+      const f=FOOD_BY[x.food], r=kel('div','row w');
+      r.append(kel('span',null,`${mdTxt(x.date)}　${f?f.em+' '+f.n:x.food}`), kel('b',null,'−'+kcalTxt(x.kcal)));
+      const del=kel('button','ghost small','とりけす'); del.onclick=()=>{ B.eats=B.eats.filter(y=>y!==x); save(); renderKcal(); };
+      r.append(del); fb.append(r);
+    }
+  }
+
+  // ランク
+  const rb=$('kcalRank'); rb.textContent='';
+  const ri=kcalRank(S.total), R=KCAL_RANKS[ri], N=KCAL_RANKS[ri+1];
+  const top=kel('div'); top.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin-top:4px';
+  const chip=(bigT,small)=>{ const c=kel('div'); c.style.cssText='flex:1 1 130px;background:var(--main-soft);border-radius:14px;padding:10px 12px';
+    c.append(kel('div','sub',small)); const b=kel('div',null,bigT); b.style.cssText='font-size:22px;font-weight:800'; c.append(b); return c; };
+  top.append(chip(`${R[1]} ${R[2]}`,'いまのランク'), chip(kcalTxt(S.total),'これまで動いた合計'));
+  rb.append(top);
+  if(N){
+    const bar=kel('div','bar'), i=kel('i'); bar.style.marginTop='10px'; i.style.width=Math.round((S.total-R[0])/(N[0]-R[0])*100)+'%'; bar.append(i); rb.append(bar);
+    rb.append(kel('div','sub',`つぎの「${N[1]} ${N[2]}」まで あと ${kcalTxt(N[0]-S.total)}`));
+  }else rb.append(kel('div','note','🏆 いちばん上のランクです。ここまで動いた自分に拍手を！'));
+  if(S.total) rb.append(kel('div','sub',`これまでの合計は、${foodEq(S.total)}ぶんです。`));
+
+  // この7日（棒グラフ）と記録
+  const wk=$('kcalWeek'); wk.textContent='';
+  const days=[...Array(7)].map((_,i)=>addDays(t,i-6)), vals=days.map(d=>S.byDay[d]||0), mx=Math.max(1,...vals);
+  const wrap=kel('div','wk');
+  days.forEach((d,i)=>{ const col=kel('div'); col.append(kel('span','t',vals[i]?String(vals[i]):''));
+    const b=kel('i'); b.style.height=Math.round(vals[i]/mx*80)+'px'; col.append(b);
+    const dt=parseYmd(d); col.append(kel('span',null, d===t?'きょう':`${dt.getMonth()+1}/${dt.getDate()}`)); wrap.append(col); });
+  wk.append(wrap);
+  const sum7=vals.reduce((s,v)=>s+v,0);
+  wk.append(kel('div','sub', sum7 ? `7日の合計 ${kcalTxt(sum7)}（${foodEq(sum7)}ぶん）。1日平均 ${kcalTxt(sum7/7)}。` : 'この7日の記録はまだありません。'));
+  const lb=$('kcalList'); lb.textContent='';
+  const recent=B.moves.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);
+  if(recent.length){ const h=kel('div',null,'最近の記録'); h.style.cssText='font-weight:700;margin-top:14px'; lb.append(h); }
+  for(const x of recent){
+    const a=ACT_BY[x.act], r=kel('div','row w');
+    r.append(kel('span',null,`${mdTxt(x.date)}　${a.em} ${a.id==='steps'?(x.steps||x.min*100).toLocaleString('ja-JP')+'歩':a.n+' '+x.min+'分'}`), kel('b',null,kcalTxt(x.kcal)));
+    r.firstChild.style.cssText='flex:1;min-width:0';
+    const del=kel('button','ghost small','けす'); del.onclick=()=>{ if(confirm('この記録をけしますか？')){ B.moves=B.moves.filter(y=>y!==x); save(); renderKcal(); renderHomeBody(); } };
+    r.append(del); lb.append(r);
+  }
+
+  // ごちそう図鑑
+  const dx=$('kcalDex'); dx.textContent='';
+  const fs=foodsShown();
+  dx.append(kel('div',null,`${fs.length}品中 ${S.dex}品 見つけました`)); dx.lastChild.style.cssText='font-weight:700;margin-top:8px';
+  const dg=kel('div','foods');
+  for(const f of fs){
+    const got=f.k<=S.maxDay, c=kel('div', got?'ok':'');
+    c.append(kel('div','e'+(got?'':' dim'), got?f.em:'？'), kel('div',null, got?f.n:'？？？'), kel('div','sub', got?`${f.k}kcal`:`1日で ${kcalTxt(f.k)} 動くと見つかる`));
+    dg.append(c);
+  }
+  dx.append(dg);
+  if(S.maxDay) dx.append(kel('div','sub',`1日でいちばん動いた日：${kcalTxt(S.maxDay)}`));
+}
+
 // ホームの「からだ」カード（使っている機能だけ出す）
 function renderHomeBody(){
   const B=data.body, box=$('homeBody'), lines=[];
   const so=soberInfo(); if(so) lines.push(so.drankToday ? '🍵 お酒なし：きょうは飲んだ日' : `🍵 お酒なし ${so.cur}日目`);
   if(Object.keys(B.trained).length) lines.push(`🏋️ 筋トレ 今週${weekTrained()}回`+(B.trained[todayYmd()]?'（きょうやった）':''));
+  if(B.moves.length){ const k=kcalOn(todayYmd()); lines.push(k ? `🔥 きょう動いた ${kcalTxt(k)}（${foodEq(k)}ぶん）` : '🔥 きょうはまだ動いた記録なし'); }
   const bp=B.rec.filter(hasBp).sort((a,b)=>a.date<b.date?-1:1).at(-1);
   if(bp){ const r=bpReadings(bp).at(-1); lines.push(`🩺 血圧 ${r.sys}/${r.dia}（${jpDate(bp.date)}・${r.slot}）`); }
   box.hidden=!lines.length; box.textContent='';
@@ -3122,11 +3404,12 @@ function renderHomeBody(){
   if(so){ const st=soberState(t);
     q(st==='no'?'✓ 飲まなかった':'🍵 飲まなかった', st==='no', ()=>setSober(t, st==='no'?'':'no'));
     q(st==='yes'?'✓ 飲んだ':'🍺 飲んだ', st==='yes', ()=>setSober(t, st==='yes'?'':'yes')); }
+  q('🔥 動いた ›', false, ()=>{ document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('kcal'); $('mvMin').focus({preventScroll:true}); });
   q('🩺 血圧・体重 ›', false, ()=>{ document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('rec'); $('recSys').scrollIntoView({block:'center'}); $('recSys').focus({preventScroll:true}); });
   box.append(row);
   if(so){ const m=document.createElement('div'); renderSoberMsg(m); box.append(m); }
 }
-function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary(); }
+function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderKcal(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary(); }
 $('tiredBtn').onclick=()=>toggleTired(todayYmd());
 
 // ---------- はじめての人へ ----------
