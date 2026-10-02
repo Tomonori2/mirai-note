@@ -806,7 +806,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.7';
+const VERSION = 'v5.8';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -863,7 +863,8 @@ function blank(){
     works: [],        // 退職後の働き方 [{type:'パート・アルバイト', amt:8, from:65, to:70}]（from 空＝退職の日から、to 空＝年金が始まるまで）
     body: blankBody(),
     seenNews: NEWS_ID,   // はじめての人には「新しくなりました」を出さない
-    engToday: null,      // ホームの「きょうの英語」で選んだ文 {date, id, why}（1日の中で変わらないように）
+    engToday: null,
+    eng: {days:{}, got:{}},   // 英語のチャレンジ {days:{日付:{id, stars}}, got:{文の番号:はじめてクリアした日}}      // ホームの「きょうの英語」で選んだ文 {date, id, why}（1日の中で変わらないように）
     lastBackup: '' };
 }
 // 「新しくなりました」の番号。お知らせの中身を変えたら1つ増やす（前から使っている人に1回だけ出る）
@@ -904,6 +905,7 @@ function load(){
   if(Array.isArray(data.day) && data.day.some(x=>typeof x==='string'))
     data.day = data.day.map((x,i)=> typeof x==='string' ? {id:i+1, text:x} : x);
   if(!data.log || typeof data.log!=='object' || Array.isArray(data.log)) data.log={};
+  data.eng = cleanEng(data.eng);
   for(const k of ['tired','cards','diary']) if(!data[k] || typeof data[k]!=='object' || Array.isArray(data[k])) data[k]={};
   data.body = cleanBody(data.body);
   const usedIds=[...data.day.map(x=>x.id), ...Object.values(data.log).flat()].filter(Number.isInteger);
@@ -914,6 +916,14 @@ function load(){
     const hit=DEFAULT_TODOS.find(([t])=>t.slice(0,12)===String(x.text).slice(0,12));
     if(hit && hit[1]!=null) x.rel=hit[1];
   }
+}
+// 英語のチャレンジの記録：形のおかしいものは捨てる
+function cleanEng(o){
+  const e={days:{}, got:{}}; o=(o&&typeof o==='object')?o:{};
+  if(o.days && typeof o.days==='object') for(const [d,v] of Object.entries(o.days))
+    if(parseYmd(d) && v && typeof v.id==='string' && [0,1,2,3].includes(v.stars)) e.days[d]={id:v.id, stars:v.stars};
+  if(o.got && typeof o.got==='object') for(const [id,d] of Object.entries(o.got)) if(parseYmd(d)) e.got[id]=d;
+  return e;
 }
 function save(){
   // 「ならし運転」の記録は直近180日ぶんだけ残す
@@ -1972,7 +1982,7 @@ function applyBackup(text){
       : [],
     tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID, diary: cleanDiary(d.diary), livingItems: cleanLivingItems(d.livingItems),
     works: cleanWorks(d.works), livingManual: cleanManual(d.livingManual), livingItemsNow: cleanLivingItems(d.livingItemsNow), livingNowManual: cleanManual(d.livingNowManual),
-    body: cleanBody(d.body) };
+    body: cleanBody(d.body), eng: cleanEng(d.eng) };
   // おつかれの日・ごほうびカード：日付の形と、あるカードの番号だけを通す
   if(d.tired && typeof d.tired==='object') for(const k of Object.keys(d.tired)) if(parseYmd(k) && d.tired[k]===true) data.tired[k]=true;
   if(d.cards && typeof d.cards==='object') for(const c of CARDS) if(parseYmd(d.cards[c.id])) data.cards[c.id]=d.cards[c.id];
@@ -2468,6 +2478,7 @@ function dayTags(d){
   const kc=kcalOn(d); if(kc) L.push(`🔥${kc}kcal`);
   const r=B.rec.find(x=>x.date===d); if(r && hasBp(r)){ const b=bpReadings(r)[0]; L.push(`🩺${b.sys}/${b.dia}`); }
   if(data.tired[d]) L.push('😴おつかれの日');
+  const en=data.eng.days[d]; if(en) L.push('🇬🇧'+'⭐'.repeat(en.stars));
   const n=(data.log[d]||[]).length; if(n) L.push(`✓ならし${n}`);
   return L;
 }
@@ -3131,6 +3142,8 @@ function cardStats(){
     liftLv: Math.max(0, ...[...new Set(data.body.lifts.map(x=>x.name))].map(n=>liftLevel(liftDays(n)).lv)),
     // 動いたカロリーの合計／ごちそう図鑑で見つけた数
     ...(({total,dex,byDay})=>({kcal:total, dex, kcalWeekHit: kcalGoalStreak(byDay)>0}))(kcalStats()),
+    // 英語のチャレンジをした日数／コレクションの数
+    engDays: Object.keys(data.eng.days).length, engGot: Object.keys(data.eng.got).length,
   };
 }
 const CARDS=[
@@ -3162,6 +3175,10 @@ const CARDS=[
    text:'目標に届いたら、次は少し先に。届かない時期も、続けていること自体が力になっています。'},
   {id:'c20', em:'🔥', t:'動いて 1,000kcal', cond:s=>s.kcal>=1000, hint:'からだ→運動で動いた分を合計1,000kcalに',
    text:'1日10分でも、毎日なら1か月で300分。こまめに動くことも、まとまった運動と同じように体に効きます。'},
+  {id:'c23', em:'🇬🇧', t:'英語チャレンジ 7日', cond:s=>s.engDays>=7, hint:'ホームの「きょうの英語」のチャレンジを7日',
+   text:'英語は、毎日少しずつが一番の近道です。1日1文でも、1年で365文になります。'},
+  {id:'c24', em:'📚', t:'英語コレクション 30文', cond:s=>s.engGot>=30, hint:'英語コレクションを30文に',
+   text:'覚えた文は、旅行や外国の人と話すときの「お守り」。声に出すほど、口がなれていきます。'},
   {id:'c22', em:'📅', t:'週の目標に到達', cond:s=>s.kcalWeekHit, hint:'「運動」で決めた週のカロリーの目標に届く',
    text:'1週間で考えると、雨の日や忙しい日があっても大丈夫。動ける日に少し多めに動けば取り戻せます。'},
   {id:'c21', em:'📖', t:'ごちそう図鑑 7品', cond:s=>s.dex>=7, hint:'ごちそう図鑑で7品見つける',
@@ -3559,6 +3576,103 @@ function speakEn(text, slow){
   const v=vs.find(v=>v.name===st.voice) || vs.find(v=>/^en[-_]US/i.test(v.lang)); if(v) u.voice=v;
   speechSynthesis.speak(u);
 }
+// ---------- 英語のチャレンジ（ゲーム） ----------
+// 1日1文。①意味クイズ ②ならべかえ（短い文は聞き取り） ③言ってみる。1回目で正解するとステップごとに⭐
+// 記録は未来ノートの中（data.eng）だけ：{days:{'2026-10-02':{id, stars}}, got:{文の番号:'はじめてクリアした日'}}
+const ENG_RANKS=[[0,'🥚','たまご'],[10,'🐣','ひよこ'],[30,'🐥','こども'],[60,'🐦','とり'],[100,'🦅','わし'],[200,'🌏','世界へ']];
+let engGame=null;   // チャレンジ中の様子（開き直すと最初から）
+// 日付と文から決まる乱数（選びなおしても同じ並びになるように）
+function seedRand(str){ let h=7; for(const c of str) h=(h*31+c.charCodeAt(0))>>>0; return ()=>{ h=(h+0x6D2B79F5)>>>0; let x=h; x=Math.imul(x^x>>>15,x|1); x^=x+Math.imul(x^x>>>7,x|61); return ((x^x>>>14)>>>0)/4294967296; }; }
+function shuffled(a, rnd){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function engWords(en){ return en.split(/\s+/).filter(Boolean); }
+function normEn(s){ return s.toLowerCase().replace(/[’']/g,"'").replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean); }
+function engStats(){
+  const days=data.eng.days, ds=Object.keys(days).sort(), t=todayYmd();
+  const stars=ds.reduce((s,d)=>s+(days[d].stars||0),0);
+  let streak=0, d=days[t]?t:addDays(t,-1); while(days[d]){ streak++; d=addDays(d,-1); }
+  let i=0; while(i+1<ENG_RANKS.length && stars>=ENG_RANKS[i+1][0]) i++;
+  return {stars, streak, days:ds.length, got:Object.keys(data.eng.got).length, rank:i};
+}
+function startEngGame(p, all, en){
+  const t=todayYmd(), rnd=seedRand(t+p.id);
+  const others=shuffled(all.filter(x=>x.jp!==p.jp && x.en!==p.en), rnd);
+  const words=engWords(en);
+  engGame={date:t, id:p.id, en, step:0, stars:[false,false,false], miss:false, wrong:[], msg:'',
+    jpChoices: shuffled([p.jp, ...others.slice(0,2).map(x=>x.jp)], rnd),
+    listen: words.length<3,   // 短い文は、ならべかえの代わりに聞き取り
+    enChoices: shuffled([en, ...others.slice(2,4).map(x=>x.en.replace(/\bKen\b/g, ekGet('settings',{}).name||'Ken'))], rnd),
+    tiles: shuffled(words.map((w,i)=>({w,i})), rnd), picked: 0};
+  // 並びがたまたま正解のままなら、1つずらす
+  if(engGame.tiles.every((x,i)=>x.i===i) && words.length>1) engGame.tiles.push(engGame.tiles.shift());
+}
+// ステップの答え合わせ。ok なら次へ（1回目で正解なら⭐）。まちがいは、そのステップの⭐がなくなるだけ
+function engAnswer(ok, wrongKey){
+  const g=engGame;
+  if(!ok){ g.miss=true; if(wrongKey!=null) g.wrong.push(wrongKey); g.msg='ちがいます。もう一度！'; renderEng(); return; }
+  g.stars[g.step]=!g.miss; g.miss=false; g.wrong=[]; g.msg=g.stars[g.step]?'⭐ 正解！':'⭕ 正解！（つぎは1回目で）'; g.step++;
+  if(g.step===3) finishEng();
+  renderEng();
+}
+function finishEng(){
+  const g=engGame, t=todayYmd(), n=g.stars.filter(Boolean).length, before=engStats();
+  data.eng.days[t]={id:g.id, stars:n};
+  if(!data.eng.got[g.id]) data.eng.got[g.id]=t;
+  save(); checkCards();
+  const after=engStats();
+  g.msg = (n===3?'🎉 パーフェクト！ ⭐⭐⭐':`クリア！ ${'⭐'.repeat(n)}${'☆'.repeat(3-n)}`)+`　コレクションに入りました（${after.got}文）。`
+    + (after.rank>before.rank ? `　ランクアップ！「${ENG_RANKS[after.rank][1]} ${ENG_RANKS[after.rank][2]}」になりました。` : '');
+  renderNewCard(); renderCards(); renderDiary();
+}
+function engListen(onText){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const r=new SR(); r.lang='en-US'; r.interimResults=false; r.maxAlternatives=3;
+  r.onresult=e=>{ const alts=[...e.results[0]].map(a=>a.transcript); onText(alts); };
+  r.onerror=()=>{ engGame.msg='うまく聞き取れませんでした。もう一度押すか、「言えた」を押してください。'; renderEng(); };
+  try{ r.start(); engGame.msg='🎤 どうぞ、英語で言ってください…'; renderEng(); }catch(e){}
+}
+// 言った英語とお手本の単語が、7割以上あっていれば正解
+function engSayScore(alts, en){
+  const want=normEn(en);
+  return Math.max(...alts.map(a=>{ const got=normEn(a); return want.filter(w=>got.includes(w)).length/want.length; }));
+}
+function renderEngGame(box, p, en){
+  const g=engGame, step=['① 意味クイズ', g.listen?'② 聞き取り':'② ならべかえ', '③ 言ってみよう'][g.step];
+  const head=kel('div',null,`🎮 チャレンジ中：${step}　${g.stars.slice(0,g.step).map(s=>s?'⭐':'☆').join('')}`); head.style.cssText='font-weight:800;color:var(--main);margin-top:6px'; box.append(head);
+  if(g.msg){ box.append(kel('div','note',g.msg)); g.msg=''; }
+  const big=t=>{ const e=kel('div',null,t); e.lang='en'; e.style.cssText='font-size:24px;font-weight:800;line-height:1.3;margin-top:6px'; box.append(e); };
+  const listenRow=()=>{ const r=kel('div','add'); const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false); const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true); r.append(b1,b2); box.append(r); };
+  const choices=(list, ans)=>{ const c=kel('div'); c.style.cssText='display:grid;gap:8px;margin-top:10px';
+    list.forEach((x,i)=>{ const b=kel('button','ghost',x); b.style.textAlign='left'; if(g.wrong.includes(i)){ b.disabled=true; b.style.opacity='.4'; b.textContent='✗ '+x; }
+      b.onclick=()=>engAnswer(x===ans, i); c.append(b); }); box.append(c); };
+  if(g.step===0){ big(en); listenRow(); box.append(kel('div','sub','この英語の意味は？')); choices(g.jpChoices, p.jp); }
+  else if(g.step===1 && g.listen){ box.append(kel('div','sub','🔊 を押して聞き、聞こえた英語を選んでください。')); listenRow(); choices(g.enChoices, en); }
+  else if(g.step===1){
+    box.append(kel('div',null,p.jp)); box.append(kel('div','sub','英語の順に、単語を押してください。'));
+    const ws=engWords(en), ans=kel('div'); ans.lang='en'; ans.style.cssText='min-height:44px;border-bottom:2px solid var(--main);font-size:20px;font-weight:800;padding:6px 0;margin-top:6px';
+    ans.textContent=ws.slice(0,g.picked).join(' ')||' '; box.append(ans);
+    const row=kel('div'); row.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:10px'; row.lang='en';
+    g.tiles.forEach((x,k)=>{ if(x.used) return; const b=kel('button','ghost small',x.w); b.style.fontSize='17px';
+      if(g.wrong.includes(k)) b.style.borderColor='var(--warn)';
+      // 同じ単語が2つある文もあるので、文字で答え合わせする
+      b.onclick=()=>{ if(x.w===ws[g.picked]){ x.used=true; g.picked++; g.wrong=[]; if(g.picked===ws.length) engAnswer(true); else renderEng(); } else engAnswer(false, k); };
+      row.append(b); });
+    box.append(row);
+  }
+  else{
+    big(en); box.append(kel('div','sub',p.jp)); listenRow();
+    box.append(kel('div','sub','お手本を聞いてから、声に出して言ってみましょう。'));
+    const r=kel('div','add');
+    if(window.SpeechRecognition||window.webkitSpeechRecognition){
+      const mic=kel('button',null,'🎤 言ってみる（採点）');
+      mic.onclick=()=>engListen(alts=>{ const sc=engSayScore(alts,en);
+        if(sc>=0.7) engAnswer(true); else { g.miss=true; g.msg=`「${alts[0]}」と聞こえました（${Math.round(sc*100)}%）。もう一度どうぞ。`; renderEng(); } });
+      r.append(mic);
+    }
+    const self=kel('button','ghost','🙋 言えた'); self.onclick=()=>engAnswer(true); r.append(self);
+    box.append(r);
+  }
+  const quit=kel('button','ghost small','やめる（あとでやる）'); quit.style.marginTop='10px'; quit.onclick=()=>{ engGame=null; renderEng(); }; box.append(quit);
+}
 function renderEng(){
   const box=$('homeEng'); box.textContent='';
   box.append(kel('h2',null,'🇬🇧 きょうの英語'));
@@ -3567,23 +3681,50 @@ function renderEng(){
     box.append(kel('div','sub', ekLoading ? '英会話アプリの文を読みこんでいます…' : '英会話アプリの文を読みこめませんでした。電波のあるところで開き直してください。'));
     const row=kel('div','add'); row.append(open); box.append(row); return;
   }
-  const all=ekAll(), prog=ekGet('prog',{}), {p,why}=ekPick(all, prog);
-  const en=p.en.replace(/\bKen\b/g, ekGet('settings',{}).name||'Ken');   // 英会話アプリで決めた自分の名前に
+  const t=todayYmd(), all=ekAll(), prog=ekGet('prog',{}), {p,why}=ekPick(all, prog);
+  const name=ekGet('settings',{}).name||'Ken', en=p.en.replace(/\bKen\b/g, name);   // 英会話アプリで決めた自分の名前に
+  if(engGame && (engGame.date!==t || engGame.id!==p.id)) engGame=null;
+  const done=data.eng.days[t], S=engStats();
+  // ⭐とランク
+  const top=kel('div','sub',`${ENG_RANKS[S.rank][1]} ${ENG_RANKS[S.rank][2]}　⭐${S.stars}`+(S.streak?`　🔥 ${S.streak}日つづけて`:'')+`　📚 ${S.got}文`); top.style.fontWeight='700'; box.append(top);
+  if(engGame && engGame.step<3){ renderEngGame(box, p, en); return; }
   box.append(kel('div','sub',why));
   const e=kel('div',null,en); e.lang='en'; e.style.cssText='font-size:26px;font-weight:800;line-height:1.3;margin-top:4px'; box.append(e);
-  const jp=kel('details'); jp.style.marginTop='4px';
+  if(engGame && engGame.msg){ box.append(kel('div','note',engGame.msg)); engGame.msg=''; }
+  const jp=kel('details'); jp.style.marginTop='4px'; if(done) jp.open=true;
   const sm=kel('summary','sub','日本語を見る（先に意味を思い出してから）'); sm.style.cursor='pointer';
   jp.append(sm, kel('div',null,p.jp)); if(p.n) jp.append(kel('div','sub','💡 '+p.n)); box.append(jp);
+  if(!done){
+    const go=kel('button',null,'🎮 この文でチャレンジ（⭐3つ）'); go.style.cssText='display:block;width:100%;margin-top:10px';
+    go.onclick=()=>{ startEngGame(p, all, en); renderEng(); }; box.append(go);
+  }else{
+    const n=done.stars||0; box.append(kel('div',null,`${'⭐'.repeat(n)}${'☆'.repeat(3-n)} きょうはクリアしました。また明日！`)); box.lastChild.style.cssText='font-weight:800;margin-top:8px';
+  }
   const row=kel('div','add');
   const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false);
   const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true);
   row.append(b1,b2,open); box.append(row);
+  // ランクの進み具合
+  const N=ENG_RANKS[S.rank+1];
+  if(N) box.append(kel('div','sub',`つぎの「${N[1]} ${N[2]}」まで ⭐あと${N[0]-S.stars}`));
+  // コレクション
+  const gotIds=Object.entries(data.eng.got).sort((a,b)=>a[1]<b[1]?1:-1);
+  if(gotIds.length){
+    const col=kel('details'); col.style.marginTop='6px';
+    const cs=kel('summary','sub',`📚 英語コレクションを見る（${gotIds.length}文）`); cs.style.cursor='pointer'; col.append(cs);
+    for(const [id] of gotIds){ const q=all.find(x=>x.id===id); if(!q) continue; const qe=q.en.replace(/\bKen\b/g,name);
+      const r=kel('div','row w'); const tx=kel('span'); tx.style.cssText='flex:1;min-width:0';
+      const a=kel('div',null,qe); a.lang='en'; a.style.fontWeight='700'; tx.append(a, kel('div','sub',q.jp));
+      const sp=kel('button','ghost small','🔊'); sp.setAttribute('aria-label',qe+' を聞く'); sp.onclick=()=>speakEn(qe,false);
+      r.append(tx,sp); col.append(r); }
+    box.append(col);
+  }
   // 英会話アプリの進み具合
-  const st=ekGet('study',{}), t=todayYmd();
+  const st=ekGet('study',{});
   if(!st.last){ box.append(kel('div','sub','英会話アプリで練習すると、つづけた日数や覚えた文の数がここに出ます。')); return; }
   const streak = st.last===t || st.last===addDays(t,-1) ? (st.streak||0) : 0;
   const due=all.filter(x=>prog[x.id] && prog[x.id].due<=t).length, learned=all.filter(x=>prog[x.id] && prog[x.id].lv>=3).length;
-  const s=kel('div','sub', [st.last===t ? '✓ きょうの英会話はやりました' : 'きょうの英会話はまだです',
+  const s=kel('div','sub', '英会話アプリ：'+[st.last===t ? '✓ きょうやりました' : 'きょうはまだ',
     streak ? `🔥 ${streak}日つづけて` : '', due ? `復習 ${due}文` : '', `覚えた ${learned}/${all.length}文`].filter(Boolean).join(' ・ '));
   s.style.marginTop='8px'; box.append(s);
 }
