@@ -1,0 +1,25 @@
+# プッシュするたびに、自動テスト（npm test）を GitHub の上で動かす
+# 結果は GitHub の「Actions」タブと、コミットの横の ✓（通った）／✗（失敗）で見られます
+name: テスト
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:   # Actions タブから手で動かすこともできる
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: テストの道具を入れる
+        run: npm ci
+      - name: テスト用のブラウザを入れる
+        run: npx playwright install --with-deps chromium
+      - name: テストを動かす
+        run: npm test
