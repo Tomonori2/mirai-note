@@ -259,6 +259,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   </div>
   <div class="card" id="newCard" hidden></div>
   <div class="card" id="homeBody" hidden></div>
+  <div class="card" id="homeEng"></div>
   <div class="card" id="homeMoney"></div>
 </section>
 
@@ -805,7 +806,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.6';
+const VERSION = 'v5.7';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -862,6 +863,7 @@ function blank(){
     works: [],        // 退職後の働き方 [{type:'パート・アルバイト', amt:8, from:65, to:70}]（from 空＝退職の日から、to 空＝年金が始まるまで）
     body: blankBody(),
     seenNews: NEWS_ID,   // はじめての人には「新しくなりました」を出さない
+    engToday: null,      // ホームの「きょうの英語」で選んだ文 {date, id, why}（1日の中で変わらないように）
     lastBackup: '' };
 }
 // 「新しくなりました」の番号。お知らせの中身を変えたら1つ増やす（前から使っている人に1回だけ出る）
@@ -3505,6 +3507,87 @@ function renderKcal(){
   if(S.maxDay) dx.append(kel('div','sub',`1日でいちばん動いた日：${kcalTxt(S.maxDay)}`));
 }
 
+// ---------- きょうの英語（「毎日10分 英会話」とつなぐ） ----------
+// 英会話アプリも同じ tomonori2.github.io の上にあるので、この端末に残した進み具合（ek_ で始まる記録）を読める。
+// 読むだけで、英会話アプリの記録は書きかえない
+const EK_URL='../eigo-kaiwa/';
+const EK_CACHE='mirai-note-ek';   // 文の一覧の控え（電波がないときや、英会話アプリが開けないとき用）
+let ekList=null, ekLoading=false;
+function ekGet(k,d){ try{ const v=localStorage.getItem('ek_'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } }
+// 英会話アプリの index.html から文の一覧を取り出す。
+// 英会話アプリは文の並び順で番号（p0, p1 …）を付けているので、1行1文として数え、順番をずらさない
+function parseEk(html){
+  const i=html.indexOf('const PHRASES = ['); if(i<0) return null;
+  const j=html.indexOf('\n];',i); if(j<0) return null;
+  const un=s=>s.replace(/\\(.)/g,'$1');
+  const list=[];
+  for(const line of html.slice(i,j).split('\n')){
+    if(!/^\s*\{\s*s:"/.test(line)) continue;
+    const g=k=>{ const m=line.match(new RegExp('\\b'+k+':"((?:[^"\\\\]|\\\\.)*)"')); return m?un(m[1]):''; };
+    list.push({id:'p'+list.length, en:g('en'), jp:g('jp'), n:g('n')});
+  }
+  return list.length ? list : null;
+}
+async function loadEk(){
+  if(ekLoading) return; ekLoading=true;
+  try{ const c=JSON.parse(localStorage.getItem(EK_CACHE)||'null'); if(Array.isArray(c)&&c.length){ ekList=c; renderEng(); } }catch(e){}
+  try{
+    const r=await fetch(EK_URL+'index.html',{cache:'no-cache'});
+    const l=r.ok ? parseEk(await r.text()) : null;
+    if(l){ ekList=l; try{ localStorage.setItem(EK_CACHE, JSON.stringify(l)); }catch(e){} }
+  }catch(e){}
+  ekLoading=false; renderEng();
+}
+// きょうの1文：復習の日が来た文 → これまでに習った文 → つぎに習う文 の順に選ぶ。
+// 1日の中では同じ文にする（英会話アプリで復習を進めても、ここの文は変わらない）
+function ekAll(){ const mine=ekGet('mine',[]); return ekList.concat(Array.isArray(mine)?mine.filter(p=>p&&typeof p.id==='string'&&p.en):[]); }
+function ekPick(all, prog){
+  const t=todayYmd(), cur=data.engToday, hit=cur&&cur.date===t&&all.find(p=>p.id===cur.id);
+  if(hit) return {p:hit, why:cur.why};
+  const due=all.filter(p=>prog[p.id] && prog[p.id].due<=t), seen=all.filter(p=>prog[p.id]);
+  const [pool,why] = due.length ? [due,'きょうの復習の文から'] : seen.length ? [seen,'これまでに習った文から'] : [all.slice(0,5),'英会話アプリで最初に習う文から'];
+  let h=7; for(const c of t) h=(h*31+c.charCodeAt(0))>>>0;   // 日付から決める（同じ日は同じ文）
+  const p=pool[h%pool.length];
+  data.engToday={date:t, id:p.id, why}; save();
+  return {p, why};
+}
+function speakEn(text, slow){
+  if(!('speechSynthesis' in window)){ alert('この端末は読み上げに対応していません。'); return; }
+  const st=ekGet('settings',{}), vs=speechSynthesis.getVoices(), r=Number(st.rate)||0.9;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=slow?Math.max(0.5,r-0.3):r;
+  const v=vs.find(v=>v.name===st.voice) || vs.find(v=>/^en[-_]US/i.test(v.lang)); if(v) u.voice=v;
+  speechSynthesis.speak(u);
+}
+function renderEng(){
+  const box=$('homeEng'); box.textContent='';
+  box.append(kel('h2',null,'🇬🇧 きょうの英語'));
+  const open=kel('button','ghost small','📱 英会話アプリで練習 ›'); open.onclick=()=>{ location.href=EK_URL; };
+  if(!ekList){
+    box.append(kel('div','sub', ekLoading ? '英会話アプリの文を読みこんでいます…' : '英会話アプリの文を読みこめませんでした。電波のあるところで開き直してください。'));
+    const row=kel('div','add'); row.append(open); box.append(row); return;
+  }
+  const all=ekAll(), prog=ekGet('prog',{}), {p,why}=ekPick(all, prog);
+  const en=p.en.replace(/\bKen\b/g, ekGet('settings',{}).name||'Ken');   // 英会話アプリで決めた自分の名前に
+  box.append(kel('div','sub',why));
+  const e=kel('div',null,en); e.lang='en'; e.style.cssText='font-size:26px;font-weight:800;line-height:1.3;margin-top:4px'; box.append(e);
+  const jp=kel('details'); jp.style.marginTop='4px';
+  const sm=kel('summary','sub','日本語を見る（先に意味を思い出してから）'); sm.style.cursor='pointer';
+  jp.append(sm, kel('div',null,p.jp)); if(p.n) jp.append(kel('div','sub','💡 '+p.n)); box.append(jp);
+  const row=kel('div','add');
+  const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false);
+  const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true);
+  row.append(b1,b2,open); box.append(row);
+  // 英会話アプリの進み具合
+  const st=ekGet('study',{}), t=todayYmd();
+  if(!st.last){ box.append(kel('div','sub','英会話アプリで練習すると、つづけた日数や覚えた文の数がここに出ます。')); return; }
+  const streak = st.last===t || st.last===addDays(t,-1) ? (st.streak||0) : 0;
+  const due=all.filter(x=>prog[x.id] && prog[x.id].due<=t).length, learned=all.filter(x=>prog[x.id] && prog[x.id].lv>=3).length;
+  const s=kel('div','sub', [st.last===t ? '✓ きょうの英会話はやりました' : 'きょうの英会話はまだです',
+    streak ? `🔥 ${streak}日つづけて` : '', due ? `復習 ${due}文` : '', `覚えた ${learned}/${all.length}文`].filter(Boolean).join(' ・ '));
+  s.style.marginTop='8px'; box.append(s);
+}
+
 // ホームの「からだ」カード（使っている機能だけ出す）
 function renderHomeBody(){
   const B=data.body, box=$('homeBody'), lines=[];
@@ -3553,9 +3636,9 @@ $('newsClose').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); };
 $('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('kcal'); };
 
 function fillAll(){ data.livingItems=cleanLivingItems(data.livingItems); data.livingItemsNow=cleanLivingItems(data.livingItemsNow); migrateWork(); fillMoney(); renderWorks(); fillLivingItems(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
-function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); }
+function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); renderEng(); }
 
-load(); fillAll(); renderAll();
+load(); fillAll(); renderAll(); loadEk();
 // アドレスの最後に ?tab=money などを付けると、そのタブで開く
 { const t=new URLSearchParams(location.search).get('tab'); const b=t&&document.querySelector('nav button[data-tab="'+CSS.escape(t)+'"]'); if(b) b.click(); }
 $('goNowIncome').onclick=()=>{ const el=document.querySelector('[data-m="income"]'); el.scrollIntoView({block:'center',behavior:'smooth'}); el.focus({preventScroll:true}); };
