@@ -806,7 +806,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.8';
+const VERSION = 'v5.9';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -864,6 +864,7 @@ function blank(){
     body: blankBody(),
     seenNews: NEWS_ID,   // はじめての人には「新しくなりました」を出さない
     engToday: null,
+    engScene: '',     // 「きょうの英語」で選んだ場面（空＝おまかせ）
     eng: {days:{}, got:{}},   // 英語のチャレンジ {days:{日付:{id, stars}}, got:{文の番号:はじめてクリアした日}}      // ホームの「きょうの英語」で選んだ文 {date, id, why}（1日の中で変わらないように）
     lastBackup: '' };
 }
@@ -918,11 +919,20 @@ function load(){
   }
 }
 // 英語のチャレンジの記録：形のおかしいものは捨てる
+// days[日付] = {id, stars}（その日の1文目）。「もう1文」をした日だけ more:[{id, stars}…] が付く。
+// rev は、おさらいクイズをした回数（1回以上のときだけ持つ）
+const ENG_MORE_MAX = 4;   // 「もう1文」は1日4文まで（1文目とあわせて5文）
 function cleanEng(o){
   const e={days:{}, got:{}}; o=(o&&typeof o==='object')?o:{};
+  const okOne=v=> v && typeof v.id==='string' && [0,1,2,3].includes(v.stars);
   if(o.days && typeof o.days==='object') for(const [d,v] of Object.entries(o.days))
-    if(parseYmd(d) && v && typeof v.id==='string' && [0,1,2,3].includes(v.stars)) e.days[d]={id:v.id, stars:v.stars};
+    if(parseYmd(d) && okOne(v)){
+      e.days[d]={id:v.id, stars:v.stars};
+      const more=Array.isArray(v.more) ? v.more.filter(okOne).slice(0,ENG_MORE_MAX).map(x=>({id:x.id, stars:x.stars})) : [];
+      if(more.length) e.days[d].more=more;
+    }
   if(o.got && typeof o.got==='object') for(const [id,d] of Object.entries(o.got)) if(parseYmd(d)) e.got[id]=d;
+  if(Number.isInteger(o.rev) && o.rev>0) e.rev=Math.min(o.rev, 100000);
   return e;
 }
 function save(){
@@ -1982,7 +1992,8 @@ function applyBackup(text){
       : [],
     tired: {}, cards: {}, cardNew: '', seenNews: NEWS_ID, diary: cleanDiary(d.diary), livingItems: cleanLivingItems(d.livingItems),
     works: cleanWorks(d.works), livingManual: cleanManual(d.livingManual), livingItemsNow: cleanLivingItems(d.livingItemsNow), livingNowManual: cleanManual(d.livingNowManual),
-    body: cleanBody(d.body), eng: cleanEng(d.eng) };
+    body: cleanBody(d.body), eng: cleanEng(d.eng), engToday: null,
+    engScene: typeof d.engScene==='string' && /^[a-z]{1,12}$/.test(d.engScene) ? d.engScene : '' };
   // おつかれの日・ごほうびカード：日付の形と、あるカードの番号だけを通す
   if(d.tired && typeof d.tired==='object') for(const k of Object.keys(d.tired)) if(parseYmd(k) && d.tired[k]===true) data.tired[k]=true;
   if(d.cards && typeof d.cards==='object') for(const c of CARDS) if(parseYmd(d.cards[c.id])) data.cards[c.id]=d.cards[c.id];
@@ -2478,7 +2489,7 @@ function dayTags(d){
   const kc=kcalOn(d); if(kc) L.push(`🔥${kc}kcal`);
   const r=B.rec.find(x=>x.date===d); if(r && hasBp(r)){ const b=bpReadings(r)[0]; L.push(`🩺${b.sys}/${b.dia}`); }
   if(data.tired[d]) L.push('😴おつかれの日');
-  const en=data.eng.days[d]; if(en) L.push('🇬🇧'+'⭐'.repeat(en.stars));
+  const en=data.eng.days[d]; if(en) L.push('🇬🇧'+'⭐'.repeat(en.stars)+(en.more?`＋${en.more.length}文`:''));
   const n=(data.log[d]||[]).length; if(n) L.push(`✓ならし${n}`);
   return L;
 }
@@ -3541,7 +3552,7 @@ function parseEk(html){
   for(const line of html.slice(i,j).split('\n')){
     if(!/^\s*\{\s*s:"/.test(line)) continue;
     const g=k=>{ const m=line.match(new RegExp('\\b'+k+':"((?:[^"\\\\]|\\\\.)*)"')); return m?un(m[1]):''; };
-    list.push({id:'p'+list.length, en:g('en'), jp:g('jp'), n:g('n')});
+    list.push({id:'p'+list.length, en:g('en'), jp:g('jp'), n:g('n'), s:g('s')});   // s＝場面（help・greet など）
   }
   return list.length ? list : null;
 }
@@ -3555,16 +3566,41 @@ async function loadEk(){
   }catch(e){}
   ekLoading=false; renderEng();
 }
-// きょうの1文：復習の日が来た文 → これまでに習った文 → つぎに習う文 の順に選ぶ。
-// 1日の中では同じ文にする（英会話アプリで復習を進めても、ここの文は変わらない）
+// 場面の名前（英会話アプリの場面と同じ並び）
+const EK_SCENES=[['help','🆘','聞き返す・困ったとき'],['greet','👋','あいさつ・自己紹介'],['num','🔢','数字・時間・お金'],['food','🍽','カフェ・レストラン'],['shop','🛍','買い物'],
+  ['move','🚉','道をたずねる・移動'],['hotel','🏨','ホテル'],['air','✈️','空港・機内'],['sick','🏥','体調・トラブル'],['chat','☕','雑談'],['feel','😊','気持ち・意見'],
+  ['daily','🏠','家・毎日のこと'],['weather','🌤','天気・季節'],['hobby','🏄','趣味・スポーツ'],['invite','📅','誘う・約束'],['opinion','💡','意見・説明する'],
+  ['story','📖','経験を話す'],['family','👨‍👩‍👦','家族・子ども'],['work','📞','電話・仕事'],['guide','🧑‍✈️','外国人に対応する']];
 function ekAll(){ const mine=ekGet('mine',[]); return ekList.concat(Array.isArray(mine)?mine.filter(p=>p&&typeof p.id==='string'&&p.en):[]); }
+// つぎに出す文を選ぶ。「まだクリアしていない文」を先に出す（同じ文ばかりにならないように）。
+//   場面を選んでいるとき：その場面の文の中から、並び順に
+//   おまかせ：復習の日が来た文 → これまでに習った文 → 一覧の並び順
+// skip は、きょうもう出した文（「もう1文」で同じ文を出さないため）
+function ekNext(all, prog, skip){
+  const t=todayYmd(), got=data.eng.got, fresh=L=>L.filter(p=>!got[p.id] && !skip.includes(p.id)), rest=L=>L.filter(p=>!skip.includes(p.id));
+  let h=7; for(const c of t+skip.length) h=(h*31+c.charCodeAt(0))>>>0;   // 日付から決める（同じ日は同じ文）
+  const any=L=>L[h%L.length];
+  const sc=data.engScene, inScene=sc ? all.filter(p=>p.s===sc) : [];
+  if(inScene.length){
+    const name=(EK_SCENES.find(x=>x[0]===sc)||[,,sc])[2], f=fresh(inScene);
+    if(f.length) return {p:f[0], why:`場面「${name}」の、まだクリアしていない文から`};
+    if(rest(inScene).length) return {p:any(rest(inScene)), why:`場面「${name}」はぜんぶクリア！おさらいの文です`};
+  }
+  const due=all.filter(p=>prog[p.id] && prog[p.id].due<=t), seen=all.filter(p=>prog[p.id]);
+  if(fresh(due).length) return {p:any(fresh(due)), why:'きょうの復習の文から'};
+  if(rest(due).length)  return {p:any(rest(due)),  why:'きょうの復習の文から'};
+  if(fresh(seen).length) return {p:any(fresh(seen)), why:'これまでに習った文から'};
+  if(fresh(all).length) return {p:fresh(all)[0], why:'まだクリアしていない文から'};
+  if(rest(all).length)  return {p:any(rest(all)), why:'ぜんぶクリアしました！おさらいの文です'};
+  return null;
+}
+// きょうの1文。1日の中では同じ文にする（英会話アプリで復習を進めても、ここの文は変わらない）
 function ekPick(all, prog){
   const t=todayYmd(), cur=data.engToday, hit=cur&&cur.date===t&&all.find(p=>p.id===cur.id);
   if(hit) return {p:hit, why:cur.why};
-  const due=all.filter(p=>prog[p.id] && prog[p.id].due<=t), seen=all.filter(p=>prog[p.id]);
-  const [pool,why] = due.length ? [due,'きょうの復習の文から'] : seen.length ? [seen,'これまでに習った文から'] : [all.slice(0,5),'英会話アプリで最初に習う文から'];
-  let h=7; for(const c of t) h=(h*31+c.charCodeAt(0))>>>0;   // 日付から決める（同じ日は同じ文）
-  const p=pool[h%pool.length];
+  // きょうもうクリアした文があれば、その文のままにする（控えから戻した直後など、えらんだ文の記録がないとき）
+  const cleared=data.eng.days[t] && all.find(p=>p.id===data.eng.days[t].id);
+  const {p,why} = cleared ? {p:cleared, why:'きょうクリアした文'} : ekNext(all, prog, []);
   data.engToday={date:t, id:p.id, why}; save();
   return {p, why};
 }
@@ -3579,29 +3615,47 @@ function speakEn(text, slow){
 // ---------- 英語のチャレンジ（ゲーム） ----------
 // 1日1文。①意味クイズ ②ならべかえ（短い文は聞き取り） ③言ってみる。1回目で正解するとステップごとに⭐
 // 記録は未来ノートの中（data.eng）だけ：{days:{'2026-10-02':{id, stars}}, got:{文の番号:'はじめてクリアした日'}}
-const ENG_RANKS=[[0,'🥚','たまご'],[10,'🐣','ひよこ'],[30,'🐥','こども'],[60,'🐦','とり'],[100,'🦅','わし'],[200,'🌏','世界へ']];
-let engGame=null;   // チャレンジ中の様子（開き直すと最初から）
+// 「もう1文」で⭐が早くたまるようになったので、上に2つランクを足した（下の6つの基準は前と同じ）
+const ENG_RANKS=[[0,'🥚','たまご'],[10,'🐣','ひよこ'],[30,'🐥','こども'],[60,'🐦','とり'],[100,'🦅','わし'],[200,'🌏','世界へ'],[400,'🚀','宇宙へ'],[700,'👑','英語マスター']];
+// チャレンジ中の様子（開き直すと最初から）。mode：'main'＝きょうの1文、'more'＝もう1文、'rev'＝おさらい（⭐は増えない）
+let engGame=null;
 // 日付と文から決まる乱数（選びなおしても同じ並びになるように）
 function seedRand(str){ let h=7; for(const c of str) h=(h*31+c.charCodeAt(0))>>>0; return ()=>{ h=(h+0x6D2B79F5)>>>0; let x=h; x=Math.imul(x^x>>>15,x|1); x^=x+Math.imul(x^x>>>7,x|61); return ((x^x>>>14)>>>0)/4294967296; }; }
 function shuffled(a, rnd){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function engWords(en){ return en.split(/\s+/).filter(Boolean); }
 function normEn(s){ return s.toLowerCase().replace(/[’']/g,"'").replace(/[^a-z0-9' ]+/g,' ').split(/\s+/).filter(Boolean); }
+// ならべかえの札：文の最初の大文字と、前後の記号（. ? ! , " など）を外す。見ただけで最初と最後が分かってしまうため。
+// I・I'm などと、文の途中でも大文字で書く言葉（English・人の名前など）は大文字のまま
+let ekProper=null;
+const engBare=w=>w.replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g,'') || w;
+// 文の頭かどうか：1語目か、前の単語が . ? ! で終わっているとき（「I'm fine. And you?」の And も文の頭）
+const engHead=(ws,i)=> i===0 || /[.?!]["”']?$/.test(ws[i-1]);
+// ws＝文を単語に分けたもの、i＝何番目の単語か
+function engTile(ws, i){
+  let s=engBare(ws[i]);
+  if(engHead(ws,i) && !/^I('|$)/.test(s)){
+    if(!ekProper){ ekProper=new Set(); for(const p of (ekList||[])){ const L=engWords(p.en); L.forEach((x,k)=>{ const y=engBare(x); if(!engHead(L,k) && /^[A-Z]/.test(y)) ekProper.add(y); }); } }
+    const name=ekGet('settings',{}).name;
+    if(!ekProper.has(s) && s!==name) s=s.charAt(0).toLowerCase()+s.slice(1);
+  }
+  return s;
+}
 function engStats(){
   const days=data.eng.days, ds=Object.keys(days).sort(), t=todayYmd();
-  const stars=ds.reduce((s,d)=>s+(days[d].stars||0),0);
+  const stars=ds.reduce((s,d)=>s+(days[d].stars||0)+(days[d].more||[]).reduce((a,x)=>a+x.stars,0),0);
   let streak=0, d=days[t]?t:addDays(t,-1); while(days[d]){ streak++; d=addDays(d,-1); }
   let i=0; while(i+1<ENG_RANKS.length && stars>=ENG_RANKS[i+1][0]) i++;
   return {stars, streak, days:ds.length, got:Object.keys(data.eng.got).length, rank:i};
 }
-function startEngGame(p, all, en){
+function startEngGame(p, all, en, mode){
   const t=todayYmd(), rnd=seedRand(t+p.id);
   const others=shuffled(all.filter(x=>x.jp!==p.jp && x.en!==p.en), rnd);
   const words=engWords(en);
-  engGame={date:t, id:p.id, en, step:0, stars:[false,false,false], miss:false, wrong:[], msg:'',
+  engGame={date:t, id:p.id, p, en, mode:mode||'main', step:0, stars:[false,false,false], miss:false, wrong:[], msg:'',
     jpChoices: shuffled([p.jp, ...others.slice(0,2).map(x=>x.jp)], rnd),
     listen: words.length<3,   // 短い文は、ならべかえの代わりに聞き取り
     enChoices: shuffled([en, ...others.slice(2,4).map(x=>x.en.replace(/\bKen\b/g, ekGet('settings',{}).name||'Ken'))], rnd),
-    tiles: shuffled(words.map((w,i)=>({w,i})), rnd), picked: 0};
+    tiles: shuffled(words.map((w,i)=>({w:engTile(words,i),i})), rnd), picked: 0};
   // 並びがたまたま正解のままなら、1つずらす
   if(engGame.tiles.every((x,i)=>x.i===i) && words.length>1) engGame.tiles.push(engGame.tiles.shift());
 }
@@ -3615,29 +3669,41 @@ function engAnswer(ok, wrongKey){
 }
 function finishEng(){
   const g=engGame, t=todayYmd(), n=g.stars.filter(Boolean).length, before=engStats();
-  data.eng.days[t]={id:g.id, stars:n};
+  const res=n===3?'🎉 パーフェクト！ ⭐⭐⭐':`クリア！ ${'⭐'.repeat(n)}${'☆'.repeat(3-n)}`;
+  // おさらい：⭐は増えない（同じ文で何度でもかせげてしまうため）。回数だけ数える
+  if(g.mode==='rev'){
+    data.eng.rev=(data.eng.rev||0)+1; save();
+    g.msg=`📖 おさらい ${res}（⭐は増えません）　これまでに ${data.eng.rev}回 おさらいしました。`;
+    return;
+  }
+  const day=data.eng.days[t];
+  if(g.mode==='more' && day){ if(!day.more) day.more=[]; if(day.more.length<ENG_MORE_MAX) day.more.push({id:g.id, stars:n}); }
+  else data.eng.days[t]={id:g.id, stars:n};
   if(!data.eng.got[g.id]) data.eng.got[g.id]=t;
   save(); checkCards();
   const after=engStats();
-  g.msg = (n===3?'🎉 パーフェクト！ ⭐⭐⭐':`クリア！ ${'⭐'.repeat(n)}${'☆'.repeat(3-n)}`)+`　コレクションに入りました（${after.got}文）。`
+  g.msg = res+`　コレクションに入りました（${after.got}文）。`
     + (after.rank>before.rank ? `　ランクアップ！「${ENG_RANKS[after.rank][1]} ${ENG_RANKS[after.rank][2]}」になりました。` : '');
   renderNewCard(); renderCards(); renderDiary();
 }
 function engListen(onText){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition, g=engGame;
   const r=new SR(); r.lang='en-US'; r.interimResults=false; r.maxAlternatives=3;
-  r.onresult=e=>{ const alts=[...e.results[0]].map(a=>a.transcript); onText(alts); };
-  r.onerror=()=>{ engGame.msg='うまく聞き取れませんでした。もう一度押すか、「言えた」を押してください。'; renderEng(); };
-  try{ r.start(); engGame.msg='🎤 どうぞ、英語で言ってください…'; renderEng(); }catch(e){}
+  // 聞き取っている間に「やめる」を押したり、別の文に進んだりしたら、結果は捨てる
+  const live=()=>engGame===g && g.step===2;
+  r.onresult=e=>{ if(!live()) return; const alts=[...e.results[0]].map(a=>a.transcript); onText(alts); };
+  r.onerror=()=>{ if(!live()) return; g.msg='うまく聞き取れませんでした。もう一度押すか、「言えた」を押してください。'; renderEng(); };
+  try{ r.start(); g.msg='🎤 どうぞ、英語で言ってください…'; renderEng(); }catch(e){}
 }
 // 言った英語とお手本の単語が、7割以上あっていれば正解
 function engSayScore(alts, en){
   const want=normEn(en);
   return Math.max(...alts.map(a=>{ const got=normEn(a); return want.filter(w=>got.includes(w)).length/want.length; }));
 }
-function renderEngGame(box, p, en){
-  const g=engGame, step=['① 意味クイズ', g.listen?'② 聞き取り':'② ならべかえ', '③ 言ってみよう'][g.step];
-  const head=kel('div',null,`🎮 チャレンジ中：${step}　${g.stars.slice(0,g.step).map(s=>s?'⭐':'☆').join('')}`); head.style.cssText='font-weight:800;color:var(--main);margin-top:6px'; box.append(head);
+function renderEngGame(box){
+  const g=engGame, p=g.p, en=g.en, step=['① 意味クイズ', g.listen?'② 聞き取り':'② ならべかえ', '③ 言ってみよう'][g.step];
+  const label={main:'🎮 チャレンジ中', more:'🎮 もう1文', rev:'📖 おさらい中'}[g.mode];
+  const head=kel('div',null,`${label}：${step}　${g.stars.slice(0,g.step).map(s=>s?'⭐':'☆').join('')}`); head.style.cssText='font-weight:800;color:var(--main);margin-top:6px'; box.append(head);
   if(g.msg){ box.append(kel('div','note',g.msg)); g.msg=''; }
   const big=t=>{ const e=kel('div',null,t); e.lang='en'; e.style.cssText='font-size:24px;font-weight:800;line-height:1.3;margin-top:6px'; box.append(e); };
   const listenRow=()=>{ const r=kel('div','add'); const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false); const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true); r.append(b1,b2); box.append(r); };
@@ -3653,8 +3719,8 @@ function renderEngGame(box, p, en){
     const row=kel('div'); row.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:10px'; row.lang='en';
     g.tiles.forEach((x,k)=>{ if(x.used) return; const b=kel('button','ghost small',x.w); b.style.fontSize='17px';
       if(g.wrong.includes(k)) b.style.borderColor='var(--warn)';
-      // 同じ単語が2つある文もあるので、文字で答え合わせする
-      b.onclick=()=>{ if(x.w===ws[g.picked]){ x.used=true; g.picked++; g.wrong=[]; if(g.picked===ws.length) engAnswer(true); else renderEng(); } else engAnswer(false, k); };
+      // 同じ単語が2つある文もあるので、文字で答え合わせする（札と同じ形＝小文字・記号なしにそろえて比べる）
+      b.onclick=()=>{ if(x.w===engTile(ws, g.picked)){ x.used=true; g.picked++; g.wrong=[]; if(g.picked===ws.length) engAnswer(true); else renderEng(); } else engAnswer(false, k); };
       row.append(b); });
     box.append(row);
   }
@@ -3683,11 +3749,12 @@ function renderEng(){
   }
   const t=todayYmd(), all=ekAll(), prog=ekGet('prog',{}), {p,why}=ekPick(all, prog);
   const name=ekGet('settings',{}).name||'Ken', en=p.en.replace(/\bKen\b/g, name);   // 英会話アプリで決めた自分の名前に
-  if(engGame && (engGame.date!==t || engGame.id!==p.id)) engGame=null;
+  // 日が変わったら、やりかけは捨てる。きょうの1文のチャレンジは、文が変わったときも捨てる
+  if(engGame && (engGame.date!==t || (engGame.mode==='main' && engGame.id!==p.id))) engGame=null;
   const done=data.eng.days[t], S=engStats();
   // ⭐とランク
   const top=kel('div','sub',`${ENG_RANKS[S.rank][1]} ${ENG_RANKS[S.rank][2]}　⭐${S.stars}`+(S.streak?`　🔥 ${S.streak}日つづけて`:'')+`　📚 ${S.got}文`); top.style.fontWeight='700'; box.append(top);
-  if(engGame && engGame.step<3){ renderEngGame(box, p, en); return; }
+  if(engGame && engGame.step<3){ renderEngGame(box); return; }
   box.append(kel('div','sub',why));
   const e=kel('div',null,en); e.lang='en'; e.style.cssText='font-size:26px;font-weight:800;line-height:1.3;margin-top:4px'; box.append(e);
   if(engGame && engGame.msg){ box.append(kel('div','note',engGame.msg)); engGame.msg=''; }
@@ -3698,12 +3765,50 @@ function renderEng(){
     const go=kel('button',null,'🎮 この文でチャレンジ（⭐3つ）'); go.style.cssText='display:block;width:100%;margin-top:10px';
     go.onclick=()=>{ startEngGame(p, all, en); renderEng(); }; box.append(go);
   }else{
-    const n=done.stars||0; box.append(kel('div',null,`${'⭐'.repeat(n)}${'☆'.repeat(3-n)} きょうはクリアしました。また明日！`)); box.lastChild.style.cssText='font-weight:800;margin-top:8px';
+    const n=done.stars||0, more=done.more||[], left=ENG_MORE_MAX-more.length;
+    box.append(kel('div',null,`${'⭐'.repeat(n)}${'☆'.repeat(3-n)} きょうはクリアしました。`+(left>0?'':'また明日！'))); box.lastChild.style.cssText='font-weight:800;margin-top:8px';
+    // きょうの「もう1文」の結果
+    for(const x of more){ const q=all.find(y=>y.id===x.id); if(!q) continue;
+      const l=kel('div','sub',`${'⭐'.repeat(x.stars)}${'☆'.repeat(3-x.stars)} `); const s=kel('span',null,q.en.replace(/\bKen\b/g,name)); s.lang='en'; l.append(s); box.append(l); }
+    // もう1文：きょうまだ出していない文から、つぎの1文を出す
+    const nx = left>0 ? ekNext(all, prog, [done.id, ...more.map(x=>x.id)]) : null;
+    if(nx){
+      const go=kel('button',null,`🎮 もう1文チャレンジ（きょう あと${left}文）`); go.style.cssText='display:block;width:100%;margin-top:10px';
+      go.onclick=()=>{ startEngGame(nx.p, all, nx.p.en.replace(/\bKen\b/g,name), 'more'); renderEng(); }; box.append(go);
+    }
+  }
+  // おさらい：集めた文から出すクイズ（⭐は増えない）。2文以上集めたら出す
+  const gotList=all.filter(x=>data.eng.got[x.id]);
+  if(gotList.length>=2){
+    const rv=kel('button','ghost','📖 おさらいクイズ（集めた文から）'); rv.style.cssText='display:block;width:100%;margin-top:8px';
+    rv.onclick=()=>{
+      const last=engGame&&engGame.mode==='rev' ? engGame.id : null, pool=gotList.filter(x=>x.id!==last);
+      const q=pool[Math.floor(seedRand(t+'rev'+(data.eng.rev||0))()*pool.length)];
+      startEngGame(q, all, q.en.replace(/\bKen\b/g,name), 'rev'); renderEng();
+    };
+    box.append(rv);
   }
   const row=kel('div','add');
   const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false);
   const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true);
   row.append(b1,b2,open); box.append(row);
+  // 場面をえらぶ（文に場面が付いているときだけ）
+  const scenes=EK_SCENES.filter(([id])=>all.some(x=>x.s===id));
+  if(scenes.length){
+    const wrap=kel('div','unit'); wrap.style.marginTop='8px';
+    const lab=kel('span',null,'場面'); const sel=document.createElement('select'); sel.id='engScene'; sel.setAttribute('aria-label','英語の場面をえらぶ');
+    const o0=document.createElement('option'); o0.value=''; o0.textContent='おまかせ（順番に）'; sel.append(o0);
+    for(const [id,ic,nm] of scenes){ const L=all.filter(x=>x.s===id), o=document.createElement('option'); o.value=id;
+      o.textContent=`${ic} ${nm}（${L.filter(x=>data.eng.got[x.id]).length}/${L.length}）`; sel.append(o); }
+    sel.value=scenes.some(([id])=>id===data.engScene) ? data.engScene : '';
+    sel.onchange=()=>{
+      data.engScene=sel.value;
+      // きょうの1文をまだクリアしていなければ、えらんだ場面の文に入れかえる
+      if(!data.eng.days[todayYmd()]){ data.engToday=null; engGame=null; }
+      save(); renderEng();
+    };
+    wrap.append(lab, sel); box.append(wrap);
+  }
   // ランクの進み具合
   const N=ENG_RANKS[S.rank+1];
   if(N) box.append(kel('div','sub',`つぎの「${N[1]} ${N[2]}」まで ⭐あと${N[0]-S.stars}`));
