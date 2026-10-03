@@ -203,7 +203,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <li><b>からだ</b>を記録する（「からだ」）。筋トレのメニュー、血圧・体重のグラフ、お酒なしの日数を使えます</li>
       <li>毎日は<b>ホーム</b>だけ見ればOK。「ならし運転」を押すと、続けた日数に応じてごほうびカードが届きます</li>
     </ol>
-    <div class="note">🔒 入れた数字や記録は、この端末の中だけに保存されます。作った人にも、だれにも送られません（「相談」でAIに送ると決めたときだけ、Googleに送ります）。</div>
+    <div class="note">🔒 入れた数字や記録は、この端末の中だけに保存されます。入れた数字や書いた文は、作った人にも、だれにも送られません（「相談」でAIに送ると決めたときだけ、Googleに送ります）。アプリが開かれた<b>回数だけ</b>は数えています（「設定」で止められます）。</div>
     <div style="margin-top:10px"><button id="welcomeOk">はじめる</button></div>
   </div>
   <div class="card" id="newsCard" hidden>
@@ -409,7 +409,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   <div class="card">
     <h2>🏠 住宅ローンを計算する</h2>
     <div class="sub">無理なく返せる額と銀行が貸してくれる上限のちがい、完済の年齢と定年のときの残り、金利が上がったときの返済額を、スライダーだけで見られます。これから家を買う人にも、そのまま教えてあげられます。</div>
-    <div style="margin-top:8px"><a href="loan/" style="display:inline-block;background:var(--main);color:var(--onMain);font-weight:700;border-radius:12px;padding:10px 16px;text-decoration:none">住宅ローンの画面を開く</a></div>
+    <div style="margin-top:8px"><a href="loan/?from=app" style="display:inline-block;background:var(--main);color:var(--onMain);font-weight:700;border-radius:12px;padding:10px 16px;text-decoration:none">住宅ローンの画面を開く</a></div>
   </div>
   <div class="card sub">
     ※ 運用で増える分は入れていない、かための計算です。物価は「くわしく入れる」で選べます。<br>
@@ -732,6 +732,11 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
     <div class="sub" style="margin-top:6px">「お金」で生まれた年と月を入れておくと、退職の日を変えたとき年齢も自動で合います。</div>
   </div>
   <div class="card">
+    <h2>このアプリが数えているもの</h2>
+    <div class="sub">どの記事から来た人に使われているかを知るために、<b>開かれた回数だけ</b>を数えています。送るのは「アプリの名前・版・どこから来たか（記事の目印）・ホーム画面から開いたか・はじめてか」の5つで、1日に1回だけです。<b>入れた数字・名前・日記・体の記録は、いっさい送りません。</b>記録先は作者のGoogleスプレッドシートです。</div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="countOff" style="width:22px;height:22px;accent-color:var(--main)"> 回数を数えるのを止める</label>
+  </div>
+  <div class="card">
     <h2>感想を送る</h2>
     <div class="sub">「ここで迷った」「こんな機能がほしい」など、ひとことで大丈夫です。お名前やメールアドレスは不要です。入れた数字は送られません。</div>
     <div style="margin-top:10px"><a href="https://forms.gle/Mr2DggszxnvC1XXaA" target="_blank" rel="noopener" style="display:inline-block;border:1px solid var(--main);color:var(--main);border-radius:12px;padding:12px 16px;font-weight:700;text-decoration:none">📝 感想を送る（1分）</a></div>
@@ -806,7 +811,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v5.9';
+const VERSION = 'v6.0';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -3884,6 +3889,7 @@ $('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.
 function fillAll(){ data.livingItems=cleanLivingItems(data.livingItems); data.livingItemsNow=cleanLivingItems(data.livingItemsNow); migrateWork(); fillMoney(); renderWorks(); fillLivingItems(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
 function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); renderEng(); }
 
+const HAD_DATA = (()=>{ try{ return localStorage.getItem(KEY)!==null; }catch(e){ return false; } })();   // 前から使っている人かどうか（回数を数えるときの「はじめて」の判定に使う）
 load(); fillAll(); renderAll(); loadEk();
 // アドレスの最後に ?tab=money などを付けると、そのタブで開く
 { const t=new URLSearchParams(location.search).get('tab'); const b=t&&document.querySelector('nav button[data-tab="'+CSS.escape(t)+'"]'); if(b) b.click(); }
@@ -3895,6 +3901,31 @@ $('ver').textContent='未来ノート '+VERSION+' ・ 記録はこの端末の�
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) renderAll(); });
 window.addEventListener('pageshow',e=>{ if(e.persisted) renderAll(); });
 if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ---------- 開かれた回数を数える ----------
+// 送るのは「アプリ名・版・どこから来たか・開き方・はじめてか」だけ。入れた数字や文は送らない。同じ端末からは1日1回。
+// 公開ページ（tomonori2.github.io）のときだけ動く（手元での確認やテストでは数えない）。設定で止められる。
+const COUNT_URL = 'https://script.google.com/macros/s/AKfycbxUtIrmhEC6aWCJmfzDkGBHghIoQtiGZD9vQQrsiU2hhAilfc-jATezlTBru3iOsHaOWg/exec';
+const COUNT_KEY = 'mirai-note-count';   // {last:最後に数えた日, first:はじめて数えた日, from:最初に来た場所, off:止めたか}
+function countState(){ try{ const o=JSON.parse(localStorage.getItem(COUNT_KEY)||'{}'); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; } }
+function countOpen(){
+  try{
+    const st=countState();
+    const q=(new URLSearchParams(location.search).get('from')||'').replace(/[^A-Za-z0-9_.\-]/g,'').slice(0,40);
+    if(q && !st.from) st.from=q;                       // 最初に来た場所を覚えておく（あとの日もその目印で数える）
+    const today=todayYmd(), should = location.hostname==='tomonori2.github.io' && !st.off && st.last!==today;
+    if(should){
+      const isNew = (!st.first && !HAD_DATA) ? 1 : 0;
+      st.last=today; if(!st.first) st.first=today;
+      const u=COUNT_URL+'?app=mirai-note&ver='+encodeURIComponent(VERSION)+'&from='+encodeURIComponent(st.from||'')+'&mode='+(standalone()?'home':'browser')+'&new='+isNew;
+      fetch(u,{mode:'no-cors',keepalive:true}).catch(()=>{});
+    }
+    localStorage.setItem(COUNT_KEY, JSON.stringify(st));
+  }catch(e){}
+}
+$('countOff').checked = !!countState().off;
+$('countOff').onchange=()=>{ try{ const st=countState(); st.off=$('countOff').checked; localStorage.setItem(COUNT_KEY, JSON.stringify(st)); }catch(e){} };
+countOpen();
 </script>
 </body>
 </html>

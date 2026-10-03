@@ -63,7 +63,7 @@ footer{color:var(--sub);font-size:12px;max-width:560px;margin:8px auto 0;padding
 <header>
   <a href="../" style="font-size:13px;color:var(--main);text-decoration:none">← 未来ノート</a>
   <h1>🏠 家、いくらまで？</h1>
-  <div class="lead">スライダーを動かすだけ。入れた数字はこのスマホの中だけ。</div>
+  <div class="lead">スライダーを動かすだけ。入れた数字はこのスマホの中だけ。開かれた回数だけ数えています。</div>
 </header>
 <main>
 
@@ -125,7 +125,7 @@ footer{color:var(--sub);font-size:12px;max-width:560px;margin:8px auto 0;padding
 </footer>
 
 <script>
-const VERSION='v1.0';
+const VERSION='v1.1';
 const KEY='ie-loan';
 const $=id=>document.getElementById(id);
 
@@ -281,6 +281,24 @@ render();
 $('ver').textContent='家、いくらまで？ '+VERSION;
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// 開かれた回数だけを数える（アプリ名・版・どこから来たか・開き方・はじめてか。入れた数字は送らない。1日1回・公開ページのときだけ）
+(function(){
+  try{
+    const K='ie-loan-count'; let st={}; try{ st=JSON.parse(localStorage.getItem(K)||'{}')||{}; }catch(e){ st={}; }
+    // 未来ノートの「設定」で止めている人は、ここでも数えない
+    let off=false; try{ off=!!(JSON.parse(localStorage.getItem('mirai-note-count')||'{}')||{}).off; }catch(e){}
+    const q=(new URLSearchParams(location.search).get('from')||'').replace(/[^A-Za-z0-9_.\-]/g,'').slice(0,40);
+    if(q && !st.from) st.from=q;
+    const d=new Date(), today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(location.hostname==='tomonori2.github.io' && !off && st.last!==today){
+      const isNew=st.first?0:1; st.last=today; if(!st.first) st.first=today;
+      let home=false; try{ home=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }catch(e){}
+      fetch('https://script.google.com/macros/s/AKfycbxUtIrmhEC6aWCJmfzDkGBHghIoQtiGZD9vQQrsiU2hhAilfc-jATezlTBru3iOsHaOWg/exec?app=loan&ver='+encodeURIComponent(VERSION)+'&from='+encodeURIComponent(st.from||'')+'&mode='+(home?'home':'browser')+'&new='+isNew,{mode:'no-cors',keepalive:true}).catch(()=>{});
+    }
+    localStorage.setItem(K, JSON.stringify(st));
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
