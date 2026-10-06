@@ -189,19 +189,19 @@ test('ランニング（速め）：選ぶと説明が出て、30分で286kcal�
   await close();
 });
 
-test('「運動」で筋トレを記録すると、筋トレの「きょうやった」にも印がつく', async () => {
+test('「運動」で筋トレを記録すると、筋トレをした日の印もつく', async () => {
   const { page, errors, close } = await openApp(user());
   await openKcal(page);
   await page.selectOption('#mvAct', 'muscle2');
   await page.fill('#mvMin', '45');
   await page.click('#mvAdd');
-  assert.match(await page.textContent('#mvMsg'), /筋トレの「きょうやった」にも印をつけました/);
+  assert.match(await page.textContent('#mvMsg'), /筋トレをした日の印も、きょうにつけました/);
   assert.ok(await page.evaluate(() => !!data.body.trained[todayYmd()]));
   // もう印がついている日に、もう1回入れても、お知らせは出ない
   await page.selectOption('#mvAct', 'muscle');
   await page.fill('#mvMin', '15');
   await page.click('#mvAdd');
-  assert.doesNotMatch(await page.textContent('#mvMsg'), /印をつけました/);
+  assert.doesNotMatch(await page.textContent('#mvMsg'), /印も/);
   // 散歩では印はつかない
   await page.fill('#mvDate', '2026-10-01');
   await page.selectOption('#mvAct', 'walk');
@@ -212,103 +212,166 @@ test('「運動」で筋トレを記録すると、筋トレの「きょうや�
   await close();
 });
 
-test('筋トレの「きょうやった」を押すと、何分かを1タップで「運動」にも記録できる', async () => {
-  const { page, errors, close } = await openApp(user());   // コースは「家で・道具なし」
-  await page.click('nav button[data-tab="body"]');
-  // 押す前は、カロリーのボタンは出ない
-  assert.doesNotMatch(await page.textContent('#trainDone'), /カロリーも記録しますか/);
-  await page.click('#trainDone button.hb');
-  assert.match(await page.textContent('#trainDone'), /カロリーも記録しますか？.*筋トレ（軽め・家で）/);
-  await page.click('#trainDone button:has-text("30分")');
-  const moves = await page.evaluate(() => data.body.moves);
-  assert.equal(moves.length, 1);
-  assert.equal(moves[0].act, 'muscle');
-  assert.equal(moves[0].kcal, 81);                           // 2.5×62×0.5×1.05
-  const box = await page.textContent('#trainDone');
-  assert.match(box, /＋81kcal/);
-  assert.match(box, /きょうの筋トレ 30分・81kcal/);
-  assert.doesNotMatch(box, /カロリーも記録しますか/);        // 2回入れないように、ボタンは消える
-  assert.deepEqual(errors, []);
-  await close();
-});
+// ---------- 筋トレの記録：種目・回数・セット数から、カロリーの目安を出す ----------
+// 入力欄に入れる（種目・重さ・1セットの回数・セット数・休みの分）
+async function fillLift(page, ex, kg, reps, sets, rest){
+  await page.selectOption('#liftEx', ex);
+  if (kg !== null) await page.fill('#liftKg', String(kg));
+  await page.fill('#liftReps', String(reps));
+  await page.fill('#liftSets', String(sets));
+  if (rest) await page.selectOption('#liftRest', String(rest));
+}
+const openLift = async saved => { const r = await openApp(saved); await r.page.click('nav button[data-tab="body"]'); return r; };
 
-test('ジムのコースなら「しっかり」で記録する。体重が無いと案内が出る', async () => {
-  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2, body: { course: 'gym1' } });
-  await page.click('nav button[data-tab="body"]');
-  await page.click('#trainDone button.hb');
-  assert.match(await page.textContent('#trainDone'), /筋トレ（しっかり・ジムで）/);
-  await page.click('#trainDone button:has-text("45分")');
-  assert.match(await page.textContent('#trainDone'), /先に体重を入れてください/);
-  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
-  assert.deepEqual(errors, []);
-  await close();
-});
-
-// ---------- 筋トレのカロリー：押す前に目安・強さをえらぶ・ほかの時間・やり直す・合計 ----------
-const trainText = page => page.textContent('#trainDone');
-
-test('筋トレ：時間のボタンに、押す前のカロリーの目安が出る。強さを切りかえると変わる', async () => {
-  const { page, errors, close } = await openApp(user());   // 家のコース・体重62kg
-  await page.click('nav button[data-tab="body"]');
-  await page.click('#trainDone button.hb');
-  assert.match(await trainText(page), /30分約81kcal/);                       // 軽め 2.5×62×0.5×1.05
-  assert.equal(await page.textContent('#trainActSeg button[aria-pressed="true"]'), '軽め');
-  await page.click('#trainActSeg button:has-text("しっかり")');
-  assert.match(await trainText(page), /筋トレ（しっかり・ジムで）/);
-  assert.match(await trainText(page), /30分約163kcal/);                      // しっかり 5×62×0.5×1.05
-  await page.click('#trainDone button:has-text("30分")');
-  const moves = await page.evaluate(() => data.body.moves);
-  assert.deepEqual([moves.length, moves[0].act, moves[0].min, moves[0].kcal], [1, 'muscle2', 30, 163]);
-  assert.deepEqual(errors, []);
-  await close();
-});
-
-test('筋トレ：ほかの時間を入れて記録できる。「やり直す」でカロリーだけ消え、印は残る', async () => {
+test('筋トレのカロリーの式：動かした分（重さ×距離×回数）＋休みの分', async () => {
   const { page, errors, close } = await openApp(user());
-  await page.click('nav button[data-tab="body"]');
-  await page.click('#trainDone button.hb');
-  await page.fill('#trainMin', '75');
-  await page.click('#trainDone button:has-text("この時間で記録")');
-  assert.match(await trainText(page), /きょうの筋トレ 75分・203kcal/);        // 2.5×62×1.25×1.05
-  await page.click('#trainDone button:has-text("やり直す")');
-  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
-  assert.ok(await page.evaluate(() => !!data.body.trained[todayYmd()]));     // 「きょうやった」の印はそのまま
-  assert.match(await trainText(page), /カロリーも記録しますか/);
-  // 0分や大きすぎる時間は入れられない
-  await page.fill('#trainMin', '0');
-  await page.click('#trainDone button:has-text("この時間で記録")');
-  assert.match(await trainText(page), /時間は 1〜600分 の間で入れてください/);
-  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
+  // ベンチプレス 100kg×5回×5セット・休み3分・体重65kg：動かした分 15.6 ＋ 休み 17.1
+  assert.deepEqual(await page.evaluate(() => liftKcal(EX_BY.bench, 100, 5, 5, 3, 65)), { kcal: 33, min: 17, work: 16, rest: 17 });
+  // 腕立て伏せ（体重の65%を30cm）20回×3セット・休み1分
+  assert.equal(await page.evaluate(() => liftKcal(EX_BY.pushup, 0, 20, 3, 1, 65).kcal), 15);
+  // プランク（秒で入れる）60秒×2セット・休み1分
+  assert.equal(await page.evaluate(() => liftKcal(EX_BY.plank, 0, 60, 2, 1, 65).kcal), 9);
+  // スクワットは、体重の分に、かついだ重さを足す
+  assert.ok(await page.evaluate(() => liftKcal(EX_BY.squat, 80, 8, 3, 2, 65).kcal > liftKcal(EX_BY.squat, 0, 8, 3, 2, 65).kcal));
   assert.deepEqual(errors, []);
   await close();
 });
 
-test('筋トレ：使ったカロリーの合計（今週・これまで）が出る。筋トレ以外の運動は数えない', async () => {
-  // きょうは 2026-10-02（金）。今週は 9/28（月）から
-  const moves = [
-    { date: '2026-09-25', act: 'muscle2', min: 60, steps: '', kcal: 300 },
-    { date: '2026-09-29', act: 'muscle', min: 30, steps: '', kcal: 81 },
-    { date: '2026-10-01', act: 'walk', min: 30, steps: '', kcal: 65 },
-  ];
-  const a = await openApp(user({ moves }));
-  await a.page.click('nav button[data-tab="body"]');
-  assert.equal(await a.page.textContent('#trainKcalSum'), '🔥 筋トレで使ったカロリー：今週 81kcal（30分）・これまで 381kcal（2日）');
-  await a.close();
-  // 筋トレの記録が無ければ出さない
-  const b = await openApp(user({ moves: [moves[2]] }));
-  await b.page.click('nav button[data-tab="body"]');
-  assert.equal(await b.page.isVisible('#trainKcalSum'), false);
-  assert.deepEqual([...a.errors, ...b.errors], []);
-  await b.close();
+test('筋トレ：メニューは無く、種目と回数を入れるとカロリーの目安が出て「運動」にも入る', async () => {
+  const { page, errors, close } = await openLift(user());   // 体重62kg
+  assert.equal(await page.isVisible('#courseSel'), false);
+  assert.match(await page.textContent('[data-bp="menu"] h2'), /筋トレの記録/);
+  await fillLift(page, 'bench', 100, 5, 5, 3);
+  assert.match(await page.textContent('#liftEst'), /この内容で 約32kcal（動かした分 16＋休みの分 16・およそ17分）/);
+  await page.click('#liftAdd');
+  const B = await page.evaluate(() => data.body);
+  const l = B.lifts[0], m = B.moves[0];
+  assert.deepEqual([l.name, l.ex, l.kg, l.reps, l.sets, l.rest, l.kcal], ['ベンチプレス', 'bench', 100, 5, 5, 3, 32]);
+  assert.deepEqual([m.act, m.min, m.kcal, m.ref === l.id], ['lift', 17, 32, true]);   // 「運動」の記録とつながっている
+  assert.ok(B.trained['2026-10-02']);                                                  // 筋トレをした日の印も付く
+  assert.match(await page.textContent('#liftMsg'), /これが最初の自己ベストです。.*＋32kcal/);
+  assert.match(await page.textContent('#trainToday'), /きょうの筋トレ：1種目・5セット・約32kcal/);
+  assert.match(await page.textContent('#trainKcalSum'), /今週 32kcal（17分）・これまで 32kcal（1日）/);
+  // 「運動」の合計にも入っている
+  assert.equal(await page.evaluate(() => kcalOn(todayYmd())), 32);
+  assert.deepEqual(errors, []);
+  await close();
 });
 
-test('筋トレ：体重が無いときは目安を出さず、体重を入れる案内を出す', async () => {
-  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2 });
-  await page.click('nav button[data-tab="body"]');
-  await page.click('#trainDone button.hb');
-  const box = await trainText(page);
-  assert.doesNotMatch(box, /30分約/);
-  assert.match(box, /体重を入れると、押す前にカロリーの目安が出ます/);
+test('筋トレ：自重の種目は重さなしで入れられる。プランクは秒で入れる', async () => {
+  const { page, errors, close } = await openLift(user());
+  await fillLift(page, 'pushup', null, 20, 3, 1);
+  assert.equal(await page.getAttribute('#liftKg', 'placeholder'), '加重');
+  await page.click('#liftAdd');
+  assert.deepEqual(await page.evaluate(() => { const l = data.body.lifts[0]; return [l.name, l.kg, l.reps, l.sets, l.kcal]; }), ['腕立て伏せ', 0, 20, 3, 15]);
+  // 重さの無い種目は、1セットでいちばん多くできた回数を出す。のびしろ予測（重さの伸び）は出さない
+  assert.match(await page.textContent('#liftView'), /1セットでいちばん多くできた記録20回/);
+  assert.equal(await page.isVisible('#growCard'), false);
+  // プランク：重さの欄が消え、単位が「秒」になる
+  await page.selectOption('#liftEx', 'plank');
+  assert.equal(await page.isVisible('#liftKg'), false);
+  assert.equal(await page.textContent('#liftRepsUnit'), '秒');
+  await page.fill('#liftReps', '60'); await page.fill('#liftSets', '2');
+  await page.click('#liftAdd');
+  assert.deepEqual(await page.evaluate(() => { const l = data.body.lifts[1]; return [l.name, l.reps, l.sets, l.kcal]; }), ['プランク', 60, 2, 8]);
+  assert.match(await page.textContent('#trainToday'), /2種目・5セット・約23kcal.*プランク60秒 × 2セット/);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：記録を消すと、「運動」に入れたカロリーも一緒に消える', async () => {
+  const { page, errors, close } = await openLift(user());
+  page.on('dialog', d => d.accept());
+  await fillLift(page, 'bench', 100, 5, 5, 3);
+  await page.click('#liftAdd');
+  await fillLift(page, 'pushup', '', 20, 3, 1);
+  await page.click('#liftAdd');
+  assert.equal(await page.evaluate(() => data.body.moves.length), 2);
+  await page.click('#trainToday .row:has-text("ベンチプレス") button.x');
+  assert.deepEqual(await page.evaluate(() => [data.body.lifts.length, data.body.moves.length, data.body.lifts[0].name, kcalOn(todayYmd())]), [1, 1, '腕立て伏せ', 15]);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：前の版の記録（種目の番号・セット数なし）もそのまま読める。自己ベストは続きから', async () => {
+  const lifts = [{ date: '2026-09-25', name: 'ベンチプレス', kg: 100, reps: 2 }, { date: '2026-09-28', name: 'サイドレイズ', kg: 8, reps: 12 }];
+  const { page, errors, close } = await openLift(user({ course: 'gym2', lifts, trained: { '2026-09-25': 'gym2' }, pbs: 0 }));
+  // 最後に記録した種目（一覧に無い名前）が、「ほか」として入っている
+  assert.equal(await page.inputValue('#liftEx'), 'other');
+  assert.equal(await page.inputValue('#liftName'), 'サイドレイズ');
+  await page.click('#liftView button:has-text("ベンチプレス")');
+  assert.equal(await page.inputValue('#liftEx'), 'bench');
+  assert.match(await page.textContent('#liftPrev'), /前回：2026年9月25日　100kg × 2回（自己ベストの目安 106.7kg）/);
+  await page.fill('#liftKg', '90'); await page.fill('#liftReps', '8'); await page.fill('#liftSets', '3');
+  await page.click('#liftAdd');
+  assert.match(await page.textContent('#liftMsg'), /自己ベスト更新！ ベンチプレスの目安が 106.7kg → 114kg/);
+  assert.equal(await page.evaluate(() => data.body.pbs), 1);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：体重が無いときは、その場で体重を入れられる。入れるまでは記録しない', async () => {
+  const { page, errors, close } = await openLift({ welcomed: true, seenNews: 2 });
+  assert.match(await page.textContent('#liftWtBox'), /カロリーの目安には体重を使います/);
+  await fillLift(page, 'bench', 60, 10, 3, 2);
+  assert.equal(await page.textContent('#liftEst'), '');            // 体重が無いので、目安はまだ出ない
+  await page.click('#liftAdd');
+  assert.match(await page.textContent('#liftMsg'), /先に体重を入れてください/);
+  assert.equal(await page.evaluate(() => data.body.lifts.length), 0);
+  await page.fill('#liftWtIn', '62');
+  await page.dispatchEvent('#liftWtIn', 'change');
+  assert.equal(await page.evaluate(() => data.body.kcalWt), 62);
+  assert.equal(await page.textContent('#liftWtBox'), '');
+  assert.match(await page.textContent('#liftEst'), /この内容で 約/);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：入れまちがいには案内が出て、記録しない', async () => {
+  const { page, errors, close } = await openLift(user());
+  const tryAdd = async () => { await page.click('#liftAdd'); return page.textContent('#liftMsg'); };
+  await page.selectOption('#liftEx', 'bench');
+  await page.fill('#liftReps', '5');
+  assert.match(await tryAdd(), /重さを入れてください/);               // バーベルの種目は重さが要る
+  await page.fill('#liftKg', '100'); await page.fill('#liftReps', '0');
+  assert.match(await tryAdd(), /回数を入れてください（1〜100回）/);
+  await page.fill('#liftReps', '5'); await page.fill('#liftSets', '30');
+  assert.match(await tryAdd(), /セット数は 1〜20 の間で/);
+  await page.fill('#liftSets', '3'); await page.fill('#liftDate', '2026-10-03');
+  assert.match(await tryAdd(), /先の日は入れられません/);
+  await page.fill('#liftDate', '2026-10-02'); await page.selectOption('#liftEx', 'other');
+  assert.match(await tryAdd(), /種目の名前を入れてください/);
+  assert.equal(await page.evaluate(() => data.body.lifts.length), 0);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：この1週間の日付を押すと、印だけ付けたり外したりできる', async () => {
+  const { page, errors, close } = await openLift(user());
+  assert.match(await page.textContent('#trainDone'), /この1週間（今週 0回）/);
+  await page.click('#trainWeek button[aria-label^="2026年10月1日"]');
+  assert.ok(await page.evaluate(() => !!data.body.trained['2026-10-01']));
+  assert.match(await page.textContent('#trainDone'), /この1週間（今週 1回）/);
+  await page.click('#trainWeek button[aria-label^="2026年10月1日"]');
+  assert.equal(await page.evaluate(() => !!data.body.trained['2026-10-01']), false);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：控えから戻しても記録が残る。形のおかしい記録は読まない', async () => {
+  const { page, errors, close } = await openLift(user());
+  page.on('dialog', d => d.accept());
+  await fillLift(page, 'squat', 80, 8, 3, 2);
+  await page.click('#liftAdd');
+  const before = await page.evaluate(() => [data.body.lifts, data.body.moves]);
+  await page.evaluate(() => applyBackup(backupText()));
+  assert.deepEqual(await page.evaluate(() => [data.body.lifts, data.body.moves]), before);
+  await page.evaluate(() => { const b = JSON.parse(backupText());
+    b.data.body.lifts = [{ date: '2026-10-01', name: 'A', kg: -5, reps: 5 }, { date: '2026-10-01', name: 'B', kg: 0, reps: 20, sets: 99, ex: 'nope', kcal: 'x', id: 'abc' }, { date: 'x', name: 'C', kg: 10, reps: 5 }];
+    b.data.body.moves = [{ date: '2026-10-01', act: 'lift', min: 5, steps: '', kcal: 10, ref: 'zzz' }]; b.data.body.liftRest = 7;
+    applyBackup(JSON.stringify(b)); });
+  assert.deepEqual(await page.evaluate(() => [data.body.lifts, data.body.moves, data.body.liftRest]),
+    [[{ date: '2026-10-01', name: 'B', kg: 0, reps: 20 }], [{ date: '2026-10-01', act: 'lift', min: 5, steps: '', kcal: 10 }], 2]);
   assert.deepEqual(errors, []);
   await close();
 });

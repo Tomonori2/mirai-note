@@ -73,6 +73,8 @@ nav button{flex:1;background:none;color:var(--sub);padding:6px 2px;font-size:12p
 nav button .i{display:block;font-size:22px;line-height:1.2}
 nav button.on{color:var(--main);background:var(--main-soft)}
 section{display:none}section.on{display:block}
+/* 「隠す」（hidden）と指定した部品は必ず消す。横並び（display:flex）の指定に負けて、出たままになるのを防ぐ */
+[hidden]{display:none!important}
 .ver{text-align:center;color:var(--sub);font-size:12px;margin:18px 0}
 .empty{color:var(--sub);font-size:15px}
 .chart{width:100%;height:auto;display:block;margin-top:10px}
@@ -200,7 +202,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <li><b>退職の日</b>を入れる（右上の「⚙設定」）。決まっていなければ「未定」のままで大丈夫です</li>
       <li><b>お金の数字</b>を入れる（「お金」）。生まれた年月・資産・手取り・生活費の4つから始められます</li>
       <li><b>やること</b>を見る。健康保険や年金の手続きが、期限つきで入っています</li>
-      <li><b>からだ</b>を記録する（「からだ」）。筋トレのメニュー、血圧・体重のグラフ、お酒なしの日数を使えます</li>
+      <li><b>からだ</b>を記録する（「からだ」）。筋トレの記録（種目と回数からカロリーの目安）、血圧・体重のグラフ、お酒なしの日数を使えます</li>
       <li>毎日は<b>ホーム</b>だけ見ればOK。「ならし運転」を押すと、続けた日数に応じてごほうびカードが届きます</li>
     </ol>
     <div class="note">🔒 入れた数字や記録は、この端末の中だけに保存されます。入れた数字や書いた文は、作った人にも、だれにも送られません（「相談」でAIに送ると決めたときだけ、Googleに送ります）。アプリが開かれた<b>回数だけ</b>は数えています（「設定」で止められます）。</div>
@@ -528,15 +530,37 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 
   <div data-bp="menu">
     <div class="card">
-      <h2>筋トレのメニュー</h2>
-      <div class="sub">自分に合うコースを選んでください。やった日に「きょうやった」を押すと、今週の回数が数えられます。</div>
-      <select id="courseSel" style="margin-top:10px">
-        <option value="home">家で・道具なし</option>
-        <option value="gym1">ジムで・はじめて（マシン）</option>
-        <option value="gym2">ジムで・なれている人</option>
-      </select>
-      <div id="courseBox"></div>
+      <h2>筋トレの記録</h2>
+      <div class="sub">やった種目と、回数・セット数を入れてください。使ったカロリーの目安を出して、「運動」の合計にも入れます。重さを入れた種目は、自己ベストも出ます。</div>
+      <div id="liftWtBox"></div>
+      <label class="f">種目</label>
+      <select id="liftEx"></select>
+      <input type="text" id="liftName" list="liftNames" maxlength="30" placeholder="種目の名前" aria-label="種目の名前（例：サイドレイズ）" style="margin-top:8px" hidden>
+      <datalist id="liftNames"></datalist>
+      <div class="sub" id="liftPrev" style="color:var(--main);font-weight:600"></div>
+      <div class="add">
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="decimal" id="liftKg" placeholder="重さ"><span>kg</span></div>
+        <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="numeric" id="liftReps" placeholder="回数"><span id="liftRepsUnit">回</span></div>
+      </div>
+      <!-- 1行に3つ並べると狭いスマホで欄がつぶれるので、2行に分ける -->
+      <div class="add">
+        <div class="unit" style="flex:1 1 130px"><input type="number" inputmode="numeric" id="liftSets" placeholder="1"><span>セット</span></div>
+        <div class="unit" style="flex:1 1 130px"><span>休み</span><select id="liftRest" aria-label="セットのあいだの休み">
+          <option value="0.5">30秒</option><option value="1">1分</option><option value="2" selected>2分</option><option value="3">3分</option><option value="5">5分</option>
+        </select></div>
+      </div>
+      <div class="sub" id="liftKgNote"></div>
+      <label class="f">日付</label>
+      <input type="date" id="liftDate">
+      <div class="sub" id="liftEst" style="font-weight:700;color:var(--main);margin-top:6px"></div>
+      <div class="add"><button id="liftAdd">記録する</button></div>
+      <div id="liftMsg"></div>
       <div id="trainDone"></div>
+      <details class="sub" style="margin-top:10px"><summary>カロリーの出し方（目安です）</summary>
+        <div style="margin-top:6px">・<b>動かした分</b>：動かす重さ（バーベルなどの重さ＋体のうち動く分）× 動く距離 × 回数。体は力の2割弱しか動きに変えられないので、その分を割りもどして計算します<br>
+        ・<b>休みの分</b>：セットのあいだも、体はふだんより多くエネルギーを使います（座っているときの2倍として、休みの長さ×セット数）<br>
+        ・ふだん座っていても使う分は入れていません（「運動」と同じ数え方です）<br>
+        ・フォームや体格で変わります。時間でざっくり入れたいときは、「運動」の「筋トレ（軽め／しっかり）」を使ってください（両方に入れると二重になります）</div></details>
       <details class="note warn" style="margin-top:12px"><summary style="font-weight:700;cursor:pointer">⚠️ はじめる前に（安全のために）</summary>
         <div style="margin-top:6px">・痛みが出たら、その日はやめる。「きつい」はOK、「痛い」はNGです<br>
         ・力むときに息を止めすぎない（血圧が一気に上がります）。吐きながら持ち上げます<br>
@@ -546,19 +570,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       </details>
     </div>
     <div class="card">
-      <h2>重さと回数の記録</h2>
-      <div class="sub">持ち上げた重さと回数を入れると、「1回だけなら挙がりそうな重さ」の目安を出して、自己ベストをお知らせします。</div>
-      <label class="f">種目</label>
-      <input type="text" id="liftName" list="liftNames" maxlength="30" placeholder="例：ベンチプレス">
-      <datalist id="liftNames"></datalist>
-      <div class="sub" id="liftPrev" style="color:var(--main);font-weight:600"></div>
-      <div class="add">
-        <div class="unit" style="flex:1 1 120px"><input type="number" inputmode="decimal" id="liftKg" placeholder="重さ"><span>kg</span></div>
-        <div class="unit" style="flex:1 1 100px"><input type="number" inputmode="numeric" id="liftReps" placeholder="回数"><span>回</span></div>
-        <input type="date" id="liftDate" style="flex:0 1 160px">
-        <button id="liftAdd">記録する</button>
-      </div>
-      <div id="liftMsg"></div>
+      <h2>種目ごとの記録</h2>
       <div id="liftView"></div>
     </div>
     <div class="card" id="growCard" hidden>
@@ -811,7 +823,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v6.1';
+const VERSION = 'v6.2';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -888,6 +900,7 @@ function blankBody(){
     moves: [],        // 動いた記録 [{date, act, min, steps, kcal}]（kcal は記録したときの体重で計算して残す）
     eats: [],         // カロリー貯金と交換した食べ物 [{date, food, kcal}]
     kcalWt: '',       // 体重の記録が無い人の、カロリー計算用の体重
+    liftRest: 2,      // 筋トレのセットのあいだの休み（分）。前にえらんだものを覚えておく
     kcalGoal: '' };   // 週のカロリーの目標（月〜日）
 }
 // おつかれの日（夜勤明け・寝不足の日）の軽いメニュー。番号はマイナスにして「理想の1日」と重ならないようにする
@@ -2553,8 +2566,16 @@ function cleanBody(o){
   b.course = COURSES[o.course] ? o.course : 'home';
   if(o.trained && typeof o.trained==='object' && !Array.isArray(o.trained))
     for(const [d,c] of Object.entries(o.trained)) if(parseYmd(d)) b.trained[d] = COURSES[c]?c:'home';
-  if(Array.isArray(o.lifts)) b.lifts = o.lifts.filter(x=>x&&parseYmd(x.date)&&typeof x.name==='string'&&x.name.trim()&&nOk(x.kg,0.5,500)!==''&&Number.isInteger(Number(x.reps))&&Number(x.reps)>=1&&Number(x.reps)<=100)
-    .map(x=>({date:x.date, name:String(x.name).trim().slice(0,30), kg:Number(x.kg), reps:Number(x.reps)})).slice(-1000);
+  // 筋トレの記録。kg は 0 でもよい（自重の種目）。reps は回数（プランクは秒なので600まで）。
+  // 種目の番号・セット数・休み・カロリー・記録の番号は、新しい版の記録にだけ付いている
+  if(Array.isArray(o.lifts)) b.lifts = o.lifts.filter(x=>x&&parseYmd(x.date)&&typeof x.name==='string'&&x.name.trim()&&nOk(x.kg,0,500)!==''&&Number.isInteger(Number(x.reps))&&Number(x.reps)>=1&&Number(x.reps)<=600)
+    .map(x=>{ const r={date:x.date, name:String(x.name).trim().slice(0,30), kg:Number(x.kg), reps:Number(x.reps)};
+      if(Number.isSafeInteger(x.id) && x.id>0) r.id=x.id;
+      if(typeof x.ex==='string' && EX_BY[x.ex]) r.ex=x.ex;
+      const s=nOk(x.sets,1,20), rs=nOk(x.rest,0,10), k=nOk(x.kcal,0,5000);
+      if(s!=='') r.sets=Math.round(s); if(rs!=='') r.rest=rs; if(k!=='') r.kcal=Math.round(k);
+      return r; }).slice(-1000);
+  b.liftRest = [0.5,1,2,3,5].includes(o.liftRest) ? o.liftRest : 2;
   b.pbs = Number.isInteger(o.pbs)&&o.pbs>=0 ? o.pbs : 0;
   if(Array.isArray(o.rec)) b.rec = o.rec.filter(x=>x&&parseYmd(x.date))
     .map(x=>({date:x.date, sys:nOk(x.sys,60,260), dia:nOk(x.dia,30,160), pulse:nOk(x.pulse,30,220), sys2:nOk(x.sys2,60,260), dia2:nOk(x.dia2,30,160), pulse2:nOk(x.pulse2,30,220), wt:nOk(x.wt,20,300)}))
@@ -2571,7 +2592,8 @@ function cleanBody(o){
     for(const [k,v] of Object.entries(o.goals)){ const n=nOk(v,1,500); if(typeof k==='string' && k.trim() && n!=='') b.goals[k.trim().slice(0,30)]=n; }
   b.freq = [1,2,3].includes(o.freq) ? o.freq : 2;
   if(Array.isArray(o.moves)) b.moves = o.moves.filter(x=>x&&parseYmd(x.date)&&ACT_BY[x.act]&&nOk(x.min,1,600)!==''&&nOk(x.kcal,0,10000)!=='')
-    .map(x=>({date:x.date, act:x.act, min:Number(x.min), steps:nOk(x.steps,1,100000), kcal:Math.round(Number(x.kcal))})).slice(-2000);
+    .map(x=>({date:x.date, act:x.act, min:Number(x.min), steps:nOk(x.steps,1,100000), kcal:Math.round(Number(x.kcal)),
+      ...(Number.isSafeInteger(x.ref) && x.ref>0 ? {ref:x.ref} : {})})).slice(-2000);   // ref＝もとになった筋トレの記録の番号
   // 歩数は1日1件（前の版で同じ日に2回入れていたら、多いほうを残す。スマホの歩数は1日の中で増えていくので）
   const stepBest={};
   for(const x of b.moves) if(x.act==='steps' && !(stepBest[x.date]?.kcal>=x.kcal)) stepBest[x.date]=x;
@@ -2583,47 +2605,55 @@ function cleanBody(o){
   return b;
 }
 
-// 筋トレのメニュー：[種目, 回数×セット, ポイント]
-const COURSES = {
-  home:{ name:'家で・道具なし', week:'週2〜3回（1日あけて）。1回15〜20分。', days:[
-    {h:'', items:[
-      ['椅子スクワット','10回×2〜3セット','椅子に座る直前までお尻を下ろして立つ。ひざがつま先より前に出すぎないように'],
-      ['ひざつき腕立て（壁でもOK）','10回×2〜3セット','体をまっすぐに。きつければ壁に手をついて行う'],
-      ['お尻上げ（ブリッジ）','15回×2セット','あお向けでひざを立て、お尻を持ち上げて1秒止める。腰痛の予防に'],
-      ['かかと上げ','20回×2セット','壁や椅子につかまってOK。ふくらはぎは「第二の心臓」'],
-      ['プランク','20〜30秒×2セット','ひじとつま先で体をまっすぐに保つ。息は止めない'],
-      ['片足立ち','左右30秒ずつ','つかまれる場所で。ふらつき・転倒の予防に'],
-    ]}]},
-  gym1:{ name:'ジムで・はじめて', week:'週2回。マシンは軌道が決まっているので、ひとりでも安全に始められます。', days:[
-    {h:'', items:[
-      ['レッグプレス（脚）','10〜12回×3セット','ひざを伸ばしきらない。脚は年齢とともにいちばん衰えやすい場所'],
-      ['チェストプレス（胸）','10〜12回×3セット','肩をすくめず、胸を張って押す'],
-      ['ラットプルダウン（背中）','10〜12回×3セット','胸に向かって引く。反動は使わない'],
-      ['シーテッドロー（背中）','10〜12回×3セット','肩甲骨を寄せるように引く。押す種目と同じくらい引く'],
-      ['プランク（おなか）','30秒×2セット','体をまっすぐ'],
-      ['バイクか早歩き','15〜20分','会話ができるくらいの強さで'],
-    ]}]},
-  gym2:{ name:'ジムで・なれている人', week:'週3回を A→B→C の順に。1日やったら1日休むのが目安です。', days:[
-    {h:'A　押す日', items:[
-      ['ベンチプレス','5回×5セット','肩甲骨を寄せて胸を張る。足で床を踏んで押す。安全バー必須'],
-      ['インクライン・ダンベルプレス','8〜10回×3セット','胸の上のほう'],
-      ['ナローベンチかディップス','8回×3セット','二の腕。押しきる力がつく'],
-      ['フェイスプル','15回×3セット','ロープを顔に向かって引く。肩のけが予防に大切'],
-    ]},
-    {h:'B　脚の日', items:[
-      ['スクワット','8回×3セット','腰を丸めない。深さは痛みのない範囲で'],
-      ['ルーマニアンデッドリフト','8回×3セット','ひざを軽く曲げ、お尻を後ろに引いて下ろす。背中を丸めない'],
-      ['ブルガリアンスクワット','左右10回×2セット','片足を後ろのベンチに乗せてしゃがむ'],
-      ['ファーマーズウォーク','30〜40m×3本','重いダンベルを両手に持って歩く。握力と体幹に'],
-    ]},
-    {h:'C　引く日＋有酸素', items:[
-      ['懸垂かラットプルダウン','8回×3セット','胸を張って引く'],
-      ['ベントオーバーロウかシーテッドロー','10回×3セット','背中で引く'],
-      ['フェイスプル','15回×3セット','毎回の仕上げに'],
-      ['ゆるい有酸素','30分','会話できる強さで。心臓と血管の土台になり、回復も早まる'],
-    ]}]},
-};
-const LIFT_NAMES=['ベンチプレス','スクワット','デッドリフト','ルーマニアンデッドリフト','ショルダープレス','ラットプルダウン','懸垂','チェストプレス','レッグプレス','ダンベルプレス'];
+// 前の版にあった「筋トレのメニュー（コース）」は無くした。前の記録を読むために、コースの名前だけ残している
+const COURSES = {home:true, gym1:true, gym2:true};
+
+// ---------- 筋トレの種目と、カロリーの目安 ----------
+// bw＝体重のうち、その動きで持ち上げる割合。dist＝1回で動く距離（m）。need＝重さ（kg）が必ず要る種目。
+// sec＝回数ではなく秒で入れる種目（met はその間の強さ）
+const EXS=[
+  {id:'bench',  n:'ベンチプレス',             bw:0,    dist:0.40, need:true},
+  {id:'squat',  n:'スクワット',               bw:0.85, dist:0.50},
+  {id:'dead',   n:'デッドリフト',             bw:0.50, dist:0.50, need:true},
+  {id:'rdl',    n:'ルーマニアンデッドリフト', bw:0.45, dist:0.40, need:true},
+  {id:'ohp',    n:'ショルダープレス',         bw:0.05, dist:0.45, need:true},
+  {id:'dbp',    n:'ダンベルプレス',           bw:0,    dist:0.40, need:true},
+  {id:'row',    n:'ロウ（引く種目）',         bw:0,    dist:0.40, need:true},
+  {id:'lat',    n:'ラットプルダウン',         bw:0,    dist:0.50, need:true},
+  {id:'chestp', n:'チェストプレス',           bw:0,    dist:0.40, need:true},
+  {id:'legp',   n:'レッグプレス',             bw:0,    dist:0.35, need:true},
+  {id:'curl',   n:'アームカール',             bw:0.02, dist:0.35, need:true},
+  {id:'pushup', n:'腕立て伏せ',               bw:0.65, dist:0.30},
+  {id:'kneepu', n:'ひざつき腕立て',           bw:0.50, dist:0.28},
+  {id:'chairsq',n:'椅子スクワット',           bw:0.85, dist:0.30},
+  {id:'lunge',  n:'ランジ・ブルガリアンスクワット', bw:0.85, dist:0.40},
+  {id:'pullup', n:'懸垂',                     bw:0.95, dist:0.50},
+  {id:'dips',   n:'ディップス',               bw:0.95, dist:0.35},
+  {id:'situp',  n:'腹筋（上体起こし）',       bw:0.45, dist:0.30},
+  {id:'bridge', n:'お尻上げ（ブリッジ）',     bw:0.45, dist:0.20},
+  {id:'calf',   n:'かかと上げ',               bw:1.0,  dist:0.08},
+  {id:'plank',  n:'プランク',                 sec:true, met:3.8},
+  {id:'other',  n:'ほか（自分で名前を入れる）', bw:0.30, dist:0.40},
+];
+const EX_BY=Object.fromEntries(EXS.map(e=>[e.id,e]));
+// 前の版の記録（種目の番号が無い）は、名前から種目を見つける
+function exOf(x){ return EX_BY[x.ex] || EXS.find(e=>e.n===x.name) || EX_BY.other; }
+// 1kgを1m動かすのに使うカロリー（kcal）。体は力の18%ほどしか動きに変えられないとして割りもどし、下ろすときの分を2割足す
+const LIFT_K = 9.8/(0.18*4184)*1.2;
+const REST_MET = 2.0;   // セットのあいだの休み（座っているときの2倍のエネルギー）
+// 種目 ex を、重さ kg・1セット reps 回（sec の種目は reps 秒）・sets セット・休み rest 分で行ったときの目安。W＝体重
+function liftKcal(ex, kg, reps, sets, rest, W){
+  const work = ex.sec ? (ex.met-1)*W*(reps/3600)*1.05*sets
+                      : LIFT_K*((ex.bw||0)*W+(kg||0))*ex.dist*reps*sets;
+  const restK = (REST_MET-1)*W*(rest*sets/60)*1.05;
+  // かかった時間の目安：1回4秒（秒で入れる種目はその秒数）＋休み
+  const min = Math.max(1, Math.round(sets*((ex.sec?reps:reps*4)/60 + rest)));
+  return {kcal:Math.max(1, Math.round(work+restK)), min, work:Math.round(work), rest:Math.round(restK)};
+}
+function liftTxt(x){
+  const ex=exOf(x);
+  return (x.kg>0 ? kgTxt(x.kg)+' × ' : '')+x.reps+(ex.sec?'秒':'回')+((x.sets||1)>1 ? ' × '+x.sets+'セット' : '');
+}
 
 let bodyTab='menu';
 function showBodyTab(t){
@@ -2639,105 +2669,41 @@ function weekTrained(){
   for(let k=0;k<=back;k++) if(data.body.trained[addDays(todayYmd(),-k)]) n++;
   return n;
 }
+// 「筋トレの記録」の下：きょうのまとめ・この1週間・カロリーの合計
+// （前の版ではここにメニューを出していたので、名前は renderCourse のまま）
 function renderCourse(){
-  const B=data.body, c=COURSES[B.course], box=$('courseBox'); box.textContent='';
-  $('courseSel').value=B.course;
-  const w=document.createElement('div'); w.className='note'; w.textContent='📅 '+c.week; box.append(w);
-  for(const day of c.days){
-    if(day.h){ const h=document.createElement('div'); h.style.cssText='font-weight:800;color:var(--main);margin-top:14px'; h.textContent=day.h; box.append(h); }
-    for(const [n,r,p] of day.items){
-      const d=document.createElement('div'); d.className='ex';
-      const top=document.createElement('div'); top.style.cssText='display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap';
-      const a=document.createElement('span'); a.className='n'; a.textContent=n;
-      const b=document.createElement('span'); b.className='r'; b.textContent=r;
-      top.append(a,b);
-      const pp=document.createElement('div'); pp.className='p'; pp.textContent=p;
-      d.append(top,pp); box.append(d);
+  const B=data.body, t=todayYmd(), box=$('trainDone'); box.textContent='';
+  // きょう入れた種目
+  const today=B.lifts.filter(x=>x.date===t);
+  if(today.length){
+    const k=today.reduce((s,x)=>s+(x.kcal||0),0), sets=today.reduce((s,x)=>s+(x.sets||1),0);
+    const h=kel('div','note'); h.id='trainToday';
+    h.append(kel('div',null,`🏋️ きょうの筋トレ：${new Set(today.map(x=>x.name)).size}種目・${sets}セット`+(k?`・約${kcalTxt(k)}（${foodEq(k)}ぶん）`:'')));
+    h.firstChild.style.fontWeight='700';
+    for(const x of today){
+      const r=kel('div','row w'), a=kel('span',null,x.name), b=kel('b',null,liftTxt(x)+(x.kcal?`　約${kcalTxt(x.kcal)}`:''));
+      const del=kel('button','x','✕'); del.style.cssText='background:none;color:var(--sub);padding:2px 6px'; del.setAttribute('aria-label',x.name+' の記録をけす');
+      del.onclick=()=>{ if(confirm('この記録をけしますか？')) removeLift(x); };
+      a.style.whiteSpace='normal'; r.append(a,b,del); h.append(r);
     }
+    box.append(h);
   }
-  if(B.course==='gym2'){
-    const t=document.createElement('details'); t.className='sub'; t.style.marginTop='8px';
-    t.innerHTML='<summary>記録が伸びなくなったら</summary><div style="margin-top:6px">・<b>重さに慣れる</b>：いちばん重い重さで1〜2回を4〜5セット（あと1回できそうで止める）<br>・<b>ヘビーホールド</b>：ラックの安全バーを腕を伸ばした位置のすぐ下に合わせ、ふだんより重いバーを5〜10秒持つだけ<br>・<b>休む週</b>：6週ほど続けたら1週間は重さを6〜7割に落として疲れを抜く<br>・<b>寝不足の日は重い日にしない</b></div>';
-    box.append(t);
-  }
-  // きょうやった
-  const box2=$('trainDone'); box2.textContent='';
-  const on=!!B.trained[todayYmd()];
-  const btn=document.createElement('button'); btn.className='hb'+(on?' on':''); btn.style.marginTop='12px';
-  const mk=document.createElement('span'); mk.className='mark'; mk.textContent='✓';
-  const t=document.createElement('span'); t.className='t'; t.textContent= on ? 'きょうやった（押すと取り消し）' : 'きょうやった';
-  const wk=document.createElement('span'); wk.className='week'; wk.textContent=`今週 ${weekTrained()}回`;
-  btn.append(mk,t,wk);
-  btn.onclick=()=>toggleTrained(todayYmd());
-  box2.append(btn);
-  if(on) box2.append(trainKcalBox());
-  // この1週間：押し忘れた日をあとから付けられる
-  const wk7=document.createElement('div'); wk7.style.cssText='display:flex;gap:6px;margin-top:8px';
+  // この1週間：筋トレした日。押すと印を付けたり外したりできる
+  const head=kel('div','sub',`この1週間（今週 ${weekTrained()}回）`); head.style.cssText='margin-top:12px;font-weight:700'; box.append(head);
+  const wk7=kel('div'); wk7.id='trainWeek'; wk7.style.cssText='display:flex;gap:6px;margin-top:6px';
   for(let k=6;k>=0;k--){
-    const d=addDays(todayYmd(),-k), dt=parseYmd(d), on2=!!B.trained[d];
-    const c=document.createElement('button'); c.className=on2?'small':'ghost small';
-    c.style.cssText='flex:1;min-width:0;padding:6px 0;font-size:12px;line-height:1.3';
-    c.setAttribute('aria-pressed', on2?'true':'false'); c.setAttribute('aria-label', jpDate(d)+(on2?'：やった':'：記録なし'));
+    const d=addDays(t,-k), dt=parseYmd(d), on=!!B.trained[d];
+    const c=kel('button', on?'small':'ghost small'); c.style.cssText='flex:1;min-width:0;padding:6px 0;font-size:12px;line-height:1.3';
+    c.setAttribute('aria-pressed', on?'true':'false'); c.setAttribute('aria-label', jpDate(d)+(on?'：やった':'：記録なし'));
     c.append('日月火水木金土'[dt.getDay()], document.createElement('br'), String(dt.getDate()));
     c.onclick=()=>toggleTrained(d);
     wk7.append(c);
   }
-  box2.append(wk7);
-  const hint=document.createElement('div'); hint.className='sub'; hint.textContent='押し忘れた日は、上の日付を押すと記録できます（もう一度押すと取り消し）。'; box2.append(hint);
+  box.append(wk7);
+  box.append(kel('div','sub','種目を記録した日には、自動で印が付きます。日付を押して、印だけ付けたり外したりもできます。'));
   const total=Object.keys(B.trained).length;
-  if(total){ const s=document.createElement('div'); s.className='sub'; s.textContent=`これまでに ${total}回。`+(weekTrained()>=2?'今週はもう十分です。休むのも大事なメニューです。':''); box2.append(s); }
-  const ks=trainKcalSummary(); if(ks) box2.append(ks);
-}
-// 「きょうやった」を押した日に、何分やったかを1タップで「運動」にも記録する
-let trainKcalMsg=[];
-let trainActSel='';   // この画面でえらんだ強さ（空なら、コースに合わせる：家なら軽め・ジムならしっかり）
-function trainKcalBox(){
-  const B=data.body, t=todayYmd(), box=kel('div','note'), W=bodyWt();
-  const act=MUSCLE_ACTS.includes(trainActSel) ? trainActSel : muscleAct(B.course), a=ACT_BY[act];
-  const done=B.moves.filter(x=>x.date===t && MUSCLE_ACTS.includes(x.act));
-  for(const m of trainKcalMsg) box.append(kel('div',null,m));
-  trainKcalMsg=[];
-  if(done.length){
-    const k=done.reduce((s,x)=>s+x.kcal,0), mn=done.reduce((s,x)=>s+x.min,0);
-    box.append(kel('div',null,`🔥 きょうの筋トレ ${mn}分・${kcalTxt(k)}（${foodEq(k)}ぶん）を「運動」に記録しています。`));
-    // 押しまちがえたとき：きょうの筋トレのカロリーだけを消して、えらび直せるようにする（「きょうやった」の印は残す）
-    const redo=kel('button','ghost small','時間や強さをやり直す'); redo.style.marginTop='6px';
-    redo.onclick=()=>{ B.moves=B.moves.filter(x=>!(x.date===t && MUSCLE_ACTS.includes(x.act))); save(); trainKcalMsg=['きょうの筋トレのカロリーを消しました。もう一度えらんでください。']; renderBodyAll(); };
-    box.append(redo);
-    return box;
-  }
-  box.append(kel('div',null,`🔥 カロリーも記録しますか？ 何分やったかを押すと「運動」に入ります（${a.em}${a.n}）。`));
-  // 強さ：同じ時間でも、休みの長さで使うカロリーは変わる
-  const seg=kel('div','seg'); seg.id='trainActSeg'; seg.style.marginTop='8px';
-  for(const [id,label] of [['muscle','軽め'],['muscle2','しっかり']]){
-    const b=kel('button',null,label); b.setAttribute('aria-pressed', id===act?'true':'false'); b.style.padding='8px 6px';
-    b.onclick=()=>{ trainActSel=id; renderCourse(); }; seg.append(b);
-  }
-  box.append(seg);
-  box.append(kel('div','sub', act==='muscle'
-    ? '軽め：家での自重や軽いダンベル。ジムでも、重い重量を少ない回数で上げて、休みを長くとる日はこちらが近いです。'
-    : 'しっかり：休みが短く、息が上がるくらい続けて動く日。休みが長い日（2分以上）は「軽め」のほうが近くなります。'));
-  const rec=m=>{ const W2=bodyWt();
-    if(!W2){ trainKcalMsg=['先に体重を入れてください。「運動」の画面で入れられます。']; renderCourse(); return; }
-    trainKcalMsg=recordMove(t, act, m, '', W2.kg).filter(x=>!x.startsWith('🏋️'));
-    checkCards(); renderBodyAll(); };
-  // 何分やったか。体重が分かっていれば、押す前にカロリーの目安を見せる
-  const row=kel('div','add');
-  for(const m of [15,30,45,60,90]){ const b=kel('button','ghost small',m+'分'); b.style.lineHeight='1.3';
-    if(W){ const k=kel('span',null,'約'+kcalTxt(moveKcal(a.met,m,W.kg))); k.style.cssText='display:block;font-size:12px;font-weight:600'; b.append(k); }
-    b.onclick=()=>rec(m); row.append(b); }
-  box.append(row);
-  // ほかの時間
-  const u=kel('div','add'), ui=kel('div','unit'), inp=kel('input'), ok=kel('button','ghost small','この時間で記録');
-  ui.style.cssText='flex:1 1 120px'; inp.type='number'; inp.inputMode='numeric'; inp.id='trainMin'; inp.placeholder='ほかの時間'; inp.setAttribute('aria-label','筋トレをした時間（分）');
-  ui.append(inp, kel('span',null,'分'));
-  ok.onclick=()=>{ const m=Math.round(Number(inp.value));
-    if(!(m>=1 && m<=600)){ trainKcalMsg=['時間は 1〜600分 の間で入れてください。']; renderCourse(); return; }
-    rec(m); };
-  u.append(ui, ok); box.append(u);
-  if(!W) box.append(kel('div','sub','体重を入れると、押す前にカロリーの目安が出ます（「運動」の画面で入れられます）。'));
-  box.append(kel('div','sub','休みの時間もふくめた、筋トレ全体の時間で入れてください。'));
-  return box;
+  if(total) box.append(kel('div','sub',`これまでに ${total}回。`+(weekTrained()>=2?'今週はもう十分です。休むのも大事なメニューです。':'')));
+  const ks=trainKcalSummary(); if(ks) box.append(ks);
 }
 // 筋トレで使ったカロリーのまとめ（今週・これまで）。「運動」に筋トレの記録があるときだけ出す
 function trainKcalSummary(){
@@ -2752,7 +2718,13 @@ function toggleTrained(d){
   const B=data.body; if(B.trained[d]) delete B.trained[d]; else B.trained[d]=B.course;
   save(); checkCards(); renderBodyAll();
 }
-$('courseSel').onchange=()=>{ data.body.course=COURSES[$('courseSel').value]?$('courseSel').value:'home'; save(); renderCourse(); };
+// 種目の記録を1つ消す。その記録から「運動」に入れたカロリーも一緒に消す
+function removeLift(x){
+  const B=data.body;
+  B.lifts=B.lifts.filter(y=>y!==x);
+  if(x.id) B.moves=B.moves.filter(m=>m.ref!==x.id);
+  save(); renderBodyAll();
+}
 
 // 1回だけ挙がりそうな重さの目安（エプリーの式。回数が多いほどずれるので12回まで）
 function e1rm(kg,reps){ return reps===1 ? kg : kg*(1+reps/30); }
@@ -2764,37 +2736,39 @@ function kgTxt(n){ return (Math.round(n*10)/10).toLocaleString('ja-JP')+'kg'; }
 let liftShow='';
 function renderLifts(){
   const B=data.body, box=$('liftView'); box.textContent='';
-  if(!$('liftDate').value) $('liftDate').value=todayYmd();
-  renderLiftPrev();
+  renderLiftForm();
   const names=[...new Set(B.lifts.map(x=>x.name))];
-  const dl=$('liftNames'); dl.textContent='';
-  for(const n of [...new Set(names.concat(LIFT_NAMES))]){ const o=document.createElement('option'); o.value=n; dl.append(o); }
-  if(!B.lifts.length){ const p=document.createElement('div'); p.className='empty'; p.style.marginTop='10px'; p.textContent='まだ記録がありません。いちばん重いセットだけ入れれば十分です。'; box.append(p); renderGrow(); return; }
+  if(!B.lifts.length){ box.append(kel('div','empty','まだ記録がありません。上で種目と回数を入れると、ここに種目ごとの記録が出ます。')); renderGrow(); return; }
   if(!names.includes(liftShow)) liftShow = B.lifts.at(-1).name;
-  const seg=document.createElement('div'); seg.className='add'; seg.style.marginTop='12px';
+  const seg=kel('div','add');
   // 種目のボタンを押すと、上の入力欄にもその種目が入る（続けて記録しやすいように）
-  for(const n of names){ const b=document.createElement('button'); b.className=n===liftShow?'small':'ghost small'; b.textContent=n; b.onclick=()=>{ liftShow=n; $('liftName').value=n; renderLifts(); }; seg.append(b); }
+  for(const n of names){ const b=kel('button', n===liftShow?'small':'ghost small', n); b.onclick=()=>{ liftShow=n; pickLiftName(n); renderLifts(); }; seg.append(b); }
   box.append(seg);
-  const list=B.lifts.filter(x=>x.name===liftShow);
-  const best=best1rm(liftShow);
-  const hd=document.createElement('div'); hd.style.marginTop='10px';
-  hd.innerHTML='<div class="sub">1回だけ挙がりそうな重さ（自己ベスト）</div>';
-  const bv=document.createElement('div'); bv.className='big'; bv.style.fontSize='36px'; bv.textContent= best>0 ? kgTxt(best) : '—';
-  hd.append(bv); box.append(hd);
-  // 日ごとのいちばん良い記録をグラフに
-  const byDay={}; for(const x of list){ if(x.reps>12) continue; const v=e1rm(x.kg,x.reps); if(!(byDay[x.date]>=v)) byDay[x.date]=v; }
-  const pts=Object.entries(byDay).sort((a,b)=>a[0]<b[0]?-1:1);
-  if(pts.length>=2) box.append(miniChart([{pts, color:'var(--main)'}], [], v=>Math.round(v)+'kg'));
-  const s=document.createElement('div'); s.className='sub'; s.style.marginTop='6px';
-  s.textContent='「重さ×回数」から計算した目安です（12回までの記録で計算）。実際に1回だけの重さに挑むときは、補助の人か安全バーを。';
-  box.append(s);
-  const h=document.createElement('div'); h.style.cssText='font-weight:700;margin-top:12px'; h.textContent='最近の記録'; box.append(h);
+  const list=B.lifts.filter(x=>x.name===liftShow), ex=exOf(list[0]);
+  const hd=kel('div'); hd.style.marginTop='10px';
+  if(list.some(x=>x.kg>0)){
+    // 重さを入れている種目：1回だけ挙がりそうな重さ
+    const best=best1rm(liftShow);
+    hd.append(kel('div','sub','1回だけ挙がりそうな重さ（自己ベスト）'));
+    const bv=kel('div','big', best>0 ? kgTxt(best) : '—'); bv.style.fontSize='36px'; hd.append(bv); box.append(hd);
+    // 日ごとのいちばん良い記録をグラフに
+    const pts=liftDays(liftShow);
+    if(pts.length>=2) box.append(miniChart([{pts, color:'var(--main)'}], [], v=>Math.round(v)+'kg'));
+    const s=kel('div','sub','「重さ×回数」から計算した目安です（12回までの記録で計算）。実際に1回だけの重さに挑むときは、補助の人か安全バーを。'); s.style.marginTop='6px'; box.append(s);
+  }else{
+    // 自重の種目：1セットでいちばん多くできた回数（秒）
+    const byDay={}; for(const x of list) if(!(byDay[x.date]>=x.reps)) byDay[x.date]=x.reps;
+    const pts=Object.entries(byDay).sort((a,b)=>a[0]<b[0]?-1:1), u=ex.sec?'秒':'回';
+    hd.append(kel('div','sub',`1セットでいちばん${ex.sec?'長く':'多く'}できた記録`));
+    const bv=kel('div','big', Math.max(...list.map(x=>x.reps))+u); bv.style.fontSize='36px'; hd.append(bv); box.append(hd);
+    if(pts.length>=2) box.append(miniChart([{pts, color:'var(--main)'}], [], v=>Math.round(v)+u));
+  }
+  const h=kel('div',null,'最近の記録'); h.style.cssText='font-weight:700;margin-top:12px'; box.append(h);
   for(const x of list.slice().reverse().slice(0,8)){
-    const r=document.createElement('div'); r.className='row w';
-    const a=document.createElement('span'); a.textContent=jpDate(x.date);
-    const b=document.createElement('b'); b.textContent=`${kgTxt(x.kg)} × ${x.reps}回`+(x.reps<=12?`（目安 ${kgTxt(e1rm(x.kg,x.reps))}）`:'');
-    const del=document.createElement('button'); del.className='x'; del.textContent='✕'; del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
-    del.onclick=()=>{ if(confirm('この記録をけしますか？')){ B.lifts=B.lifts.filter(y=>y!==x); save(); renderLifts(); } };
+    const r=kel('div','row w'), a=kel('span',null,jpDate(x.date));
+    const b=kel('b',null, liftTxt(x)+(x.kg>0&&x.reps<=12?`（目安 ${kgTxt(e1rm(x.kg,x.reps))}）`:'')+(x.kcal?`　約${kcalTxt(x.kcal)}`:''));
+    const del=kel('button','x','✕'); del.style.cssText='background:none;color:var(--sub);padding:2px 6px';
+    del.onclick=()=>{ if(confirm('この記録をけしますか？')) removeLift(x); };
     r.append(a,b,del); box.append(r);
   }
   renderGrow();
@@ -2807,7 +2781,8 @@ const GROW_DEF = 0.006;
 const LV_STEP = 2.5;   // 2.5kg伸びるごとにレベルが1つ上がる（ジムの重りの最小単位に近い）
 // 日ごとのいちばん良い目安（12回までの記録）
 function liftDays(name){
-  const byDay={}; for(const x of data.body.lifts){ if(x.name!==name || x.reps>12) continue; const v=e1rm(x.kg,x.reps); if(!(byDay[x.date]>=v)) byDay[x.date]=v; }
+  // 自重（重さなし）の記録は数えない
+  const byDay={}; for(const x of data.body.lifts){ if(x.name!==name || x.reps>12 || !(x.kg>0)) continue; const v=e1rm(x.kg,x.reps); if(!(byDay[x.date]>=v)) byDay[x.date]=v; }
   return Object.entries(byDay).sort((a,b)=>a[0]<b[0]?-1:1);
 }
 // その人のこれまでの伸び方（1回あたり）。3日以上・3週間以上の記録があるときだけ
@@ -2831,7 +2806,7 @@ function weeksTo(goal, start, base, rate, freq){
   for(let w=1; w<=156; w++){ const slow=Math.max(0.2, 1-(v/base-1)/0.6); v*=Math.pow(1+rate*slow, freq); if(v>=goal) return w; }
   return null;
 }
-// 何週つづけて筋トレしたか（月曜はじまり。「きょうやった」か重さの記録がある週）
+// 何週つづけて筋トレしたか（月曜はじまり。筋トレをした日の印か、種目の記録がある週）
 function trainWeeks(){
   const B=data.body, days=new Set([...Object.keys(B.trained), ...B.lifts.map(x=>x.date)]);
   const monday=d=>{ const t=parseYmd(d), k=(t.getDay()+6)%7; return addDays(d,-k); };
@@ -2906,33 +2881,95 @@ function renderGrow(){
       : `点線は、はじめての人の目安（1回あたり＋${(GROW_DEF*100).toFixed(1)}%）で計算しています。記録が3週間ぶんたまると、あなたの伸び方に切りかわります。`)
     + '伸びは最初の数か月が大きく、だんだんゆっくりになります。研究では、高齢の人でも週2〜3回・12週で力が平均25%前後伸びています。痛い日は休んでください。'));
 }
-// 種目を入れると、その種目の前回の記録を出す（きょうの重さを決める目安に）
-function renderLiftPrev(){
-  const name=$('liftName').value.trim(), el=$('liftPrev');
-  const last=name ? data.body.lifts.filter(x=>x.name===name).sort((a,b)=>a.date<b.date?-1:1).at(-1) : null;
-  el.textContent = last ? `前回：${jpDate(last.date)}　${kgTxt(last.kg)} × ${last.reps}回`+(best1rm(name)>0?`（自己ベストの目安 ${kgTxt(best1rm(name))}）`:'') : '';
+// ---------- 筋トレの記録：入力欄 ----------
+let liftFormReady=false;
+// いま入力欄でえらんでいる種目と、その名前
+function liftPicked(){
+  const ex=EX_BY[$('liftEx').value]||EXS[0];
+  return {ex, name: ex.id==='other' ? $('liftName').value.trim().slice(0,30) : ex.n};
 }
-$('liftName').addEventListener('input', renderLiftPrev);
+// 種目の名前から、入力欄の種目をえらぶ（一覧に無い名前は「ほか」にして名前を入れる）
+function pickLiftName(n){
+  const ex=EXS.find(e=>e.n===n && e.id!=='other');
+  $('liftEx').value = ex ? ex.id : 'other';
+  $('liftName').value = ex ? '' : n;
+  $('liftKg').value = '';
+  renderLiftForm();
+}
+function renderLiftForm(){
+  const B=data.body, sel=$('liftEx');
+  if(!liftFormReady){
+    liftFormReady=true;
+    for(const e of EXS){ const o=document.createElement('option'); o.value=e.id; o.textContent=e.n; sel.append(o); }
+    // 前に記録した種目があれば、それを最初にえらんでおく
+    const last=B.lifts.at(-1); if(last){ const ex=exOf(last); sel.value=ex.id; if(ex.id==='other') $('liftName').value=last.name; }
+    if([0.5,1,2,3,5].includes(B.liftRest)) $('liftRest').value=String(B.liftRest);
+  }
+  if(!$('liftDate').value) $('liftDate').value=todayYmd();
+  const {ex,name}=liftPicked(), W=bodyWt();
+  // 「ほか」のときだけ、名前を入れる欄を出す。これまでに自分で入れた名前を候補に出す
+  $('liftName').hidden = ex.id!=='other';
+  const dl=$('liftNames'); dl.textContent='';
+  for(const n of [...new Set(B.lifts.filter(x=>exOf(x).id==='other').map(x=>x.name))]){ const o=document.createElement('option'); o.value=n; dl.append(o); }
+  // 重さの欄：秒の種目では出さない。自重の種目は、空のままでよい
+  $('liftKg').closest('.unit').hidden = !!ex.sec;
+  $('liftKg').placeholder = ex.need ? '重さ' : '加重';
+  $('liftReps').placeholder = ex.sec ? '秒' : '回数';
+  $('liftRepsUnit').textContent = ex.sec ? '秒' : '回';
+  $('liftKgNote').textContent = ex.sec ? '1セットの秒数と、セット数を入れてください。'
+    : ex.need ? '重さは、バーもふくめた合計（ダンベルは左右の合計）で入れてください。回数は1セットの回数です。'
+    : '自分の体重で行う種目です。重りを持つとき（加重）だけ、重さを入れてください。回数は1セットの回数です。';
+  // 体重：カロリーの計算に使う。記録が無ければ、ここで入れられる
+  const wb=$('liftWtBox'); wb.textContent='';
+  if(!W){
+    const n=kel('div','note warn'); n.append(kel('div',null,'カロリーの目安には体重を使います。だいたいの体重を入れてください（あとで「運動」や「血圧・体重」でも変えられます）。'));
+    const u=kel('div','unit'), i=kel('input'); i.type='number'; i.inputMode='decimal'; i.id='liftWtIn'; i.placeholder='例：62'; i.setAttribute('aria-label','体重'); u.style.marginTop='6px';
+    i.addEventListener('change',()=>{ const v=Number(i.value); if(i.value.trim()!=='' && v>=20 && v<=300){ B.kcalWt=v; save(); renderBodyAll(); } });
+    u.append(i, kel('span',null,'kg')); n.append(u); wb.append(n);
+  }
+  // 前回の記録
+  const lastRec=name ? B.lifts.filter(x=>x.name===name).sort((a,b)=>a.date<b.date?-1:1).at(-1) : null;
+  $('liftPrev').textContent = lastRec ? `前回：${jpDate(lastRec.date)}　${liftTxt(lastRec)}`+(best1rm(name)>0?`（自己ベストの目安 ${kgTxt(best1rm(name))}）`:'') : '';
+  // 入れている途中の目安
+  const v=liftInput(), est=$('liftEst');
+  est.textContent = v.ok && W ? (()=>{ const k=liftKcal(ex, v.kg, v.reps, v.sets, v.rest, W.kg); return `この内容で 約${kcalTxt(k.kcal)}（動かした分 ${k.work}＋休みの分 ${k.rest}・およそ${k.min}分）`; })() : '';
+}
+// 入力欄の数字を読む。ok＝記録できる形かどうか。err＝足りないところの案内
+function liftInput(){
+  const {ex,name}=liftPicked(), kgRaw=$('liftKg').value.trim(), kg = ex.sec||kgRaw==='' ? 0 : Number(kgRaw);
+  const reps=Number($('liftReps').value), setsRaw=$('liftSets').value.trim(), sets=setsRaw==='' ? 1 : Number(setsRaw), rest=Number($('liftRest').value), d=$('liftDate').value;
+  let err='';
+  if(!name) err='種目の名前を入れてください。';
+  else if(ex.need && !(kg>=0.5 && kg<=500)) err='重さを入れてください（kg）。';
+  else if(!(kg>=0 && kg<=500)) err='重さは 0〜500kg の間で入れてください。';
+  else if(ex.sec ? !(Number.isInteger(reps) && reps>=5 && reps<=600) : !(Number.isInteger(reps) && reps>=1 && reps<=100)) err = ex.sec ? '秒数を入れてください（5〜600秒）。' : '回数を入れてください（1〜100回）。';
+  else if(!(Number.isInteger(sets) && sets>=1 && sets<=20)) err='セット数は 1〜20 の間で入れてください。';
+  else if(!parseYmd(d) || d>todayYmd()) err='日付を確かめてください（先の日は入れられません）。';
+  return {ok:!err, err, ex, name, kg, reps, sets, rest, d};
+}
+// 種目を変えたら、前の種目の重さは消す（ベンチの100kgが、腕立て伏せの「加重」に残らないように）
+$('liftEx').addEventListener('change',()=>{ $('liftKg').value=''; });
+for(const id of ['liftEx','liftName','liftKg','liftReps','liftSets','liftRest','liftDate']){ $(id).addEventListener('input', renderLiftForm); $(id).addEventListener('change', renderLiftForm); }
 $('liftAdd').onclick=()=>{
-  const B=data.body, name=$('liftName').value.trim().slice(0,30), kg=parseFloat($('liftKg').value), reps=Number($('liftReps').value), d=$('liftDate').value;
-  const msg=$('liftMsg'); msg.textContent='';
-  if(!name) return alert('種目を入れてください。');
-  if(!(kg>=0.5 && kg<=500)) return alert('重さを入れてください（kg）。');
-  if(!(Number.isInteger(reps) && reps>=1 && reps<=100)) return alert('回数を入れてください（1〜100回）。');
-  if(!parseYmd(d)) return alert('日付を入れてください。');
-  const before=best1rm(name);
-  B.lifts.push({date:d, name, kg, reps});
+  const B=data.body, v=liftInput(), W=bodyWt(), msg=$('liftMsg'); msg.textContent='';
+  const say=(text,warn)=>msg.append(kel('div','note'+(warn?' warn':''),text));
+  if(!v.ok){ say(v.err, true); return; }
+  if(!W){ say('先に体重を入れてください（カロリーの目安に使います）。', true); $('liftWtIn')?.focus(); return; }
+  const k=liftKcal(v.ex, v.kg, v.reps, v.sets, v.rest, W.kg), before=best1rm(v.name);
+  const id=Math.floor(Date.now()*1000+Math.random()*1000);   // この記録の番号（「運動」に入れたカロリーとつなぐ）
+  B.lifts.push({id, date:v.d, name:v.name, ex:v.ex.id, kg:v.kg, reps:v.reps, sets:v.sets, rest:v.rest, kcal:k.kcal});
   if(B.lifts.length>1000) B.lifts=B.lifts.slice(-1000);
-  const n=document.createElement('div'); n.className='note'; n.style.marginTop='10px';
-  if(reps<=12 && before>0 && e1rm(kg,reps)>before+1e-9){
-    B.pbs++;
-    n.textContent=`🎉 自己ベスト更新！ ${name}の目安が ${kgTxt(before)} → ${kgTxt(e1rm(kg,reps))} になりました。`;
-  } else if(reps<=12 && before===0){
-    n.textContent=`記録しました。${name}の目安は ${kgTxt(e1rm(kg,reps))} です。これが最初の自己ベストです。`;
-  } else n.textContent='記録しました。';
-  msg.append(n);
-  liftShow=name; $('liftKg').value=''; $('liftReps').value='';
-  save(); checkCards(); renderBodyAll();
+  B.liftRest=v.rest;
+  // 自己ベスト（重さを入れた種目・12回まで）
+  if(v.kg>0 && v.reps<=12){
+    const now=e1rm(v.kg,v.reps);
+    if(before>0 && now>before+1e-9){ B.pbs++; say(`🎉 自己ベスト更新！ ${v.name}の目安が ${kgTxt(before)} → ${kgTxt(now)} になりました。`); }
+    else if(before===0) say(`${v.name}の目安は ${kgTxt(now)} です。これが最初の自己ベストです。`);
+  }
+  // カロリーを「運動」にも入れる（筋トレの日の印も、ここで付く）
+  for(const m of recordMove(v.d, 'lift', k.min, '', W.kg, {kcal:k.kcal, ref:id})) if(!m.startsWith('🏋️')) say(m);
+  liftShow=v.name; $('liftReps').value=''; $('liftSets').value='';
+  checkCards(); renderBodyAll();
 };
 
 // 小さな折れ線グラフ（日付 → 値）。refs は目安の横線
@@ -3211,7 +3248,7 @@ const CARDS=[
    text:'疲れた日は、軽いメニューで十分。休むことも、長く続けるための大事な練習です。'},
   {id:'c5', em:'☀️', t:'できた日 10日', cond:s=>s.days>=10, hint:'できた日を10日に',
    text:'朝の光を浴びると体内時計が整い、夜ぐっすり眠りやすくなります。'},
-  {id:'c6', em:'🏋️', t:'体を動かした', cond:s=>s.trained>=1||s.lifted, hint:'筋トレの「きょうやった」を押す',
+  {id:'c6', em:'🏋️', t:'体を動かした', cond:s=>s.trained>=1||s.lifted, hint:'筋トレを1つ記録する',
    text:'筋肉は何歳からでも増えます。特に脚は衰えやすいので、スクワットがおすすめです。'},
   {id:'c7', em:'🩺', t:'体の記録 7回', cond:s=>s.rec>=7, hint:'血圧か体重を7回記録',
    text:'血圧は日によって変わります。1回の数字より、1週間の平均で見るのがコツです。'},
@@ -3302,8 +3339,8 @@ const ACTS=[
   {id:'bike',   em:'🚲', n:'自転車（ふつうの速さ）', met:4.0},
   {id:'stairs', em:'⬆️', n:'階段をのぼる', met:4.0},
   {id:'radio',  em:'🙆', n:'ラジオ体操', met:4.0},
-  {id:'muscle', em:'🏋️', n:'筋トレ（軽め・家で）', met:3.5, note:'家での自重や軽いダンベル。ジムでも、重い重量を少ない回数で上げて休みを長くとる日は、こちらが近いです。休みもふくめた全体の時間で入れてください。'},
-  {id:'muscle2',em:'💪', n:'筋トレ（しっかり・ジムで）', met:6.0, note:'休みが短く、息が上がるくらい続けて動く日。休みが長い日（2分以上）は「軽め」のほうが近くなります。休みもふくめた全体の時間で入れてください。'},
+  {id:'muscle', em:'🏋️', n:'筋トレ（軽め・家で）', met:3.5, note:'家での自重や軽いダンベル。ジムでも、重い重量を少ない回数で上げて休みを長くとる日は、こちらが近いです。休みもふくめた全体の時間で入れてください。「筋トレ」の画面で種目と回数を入れた日は、ここには入れません（二重になります）。'},
+  {id:'muscle2',em:'💪', n:'筋トレ（しっかり・ジムで）', met:6.0, note:'休みが短く、息が上がるくらい続けて動く日。休みが長い日（2分以上）は「軽め」のほうが近くなります。休みもふくめた全体の時間で入れてください。「筋トレ」の画面で種目と回数を入れた日は、ここには入れません（二重になります）。'},
   {id:'yoga',   em:'🧘', n:'ヨガ・ストレッチ', met:2.5},
   {id:'swim',   em:'🏊', n:'水泳（ゆっくり）', met:6.0},
   {id:'aqua',   em:'🌊', n:'水中ウォーキング', met:4.5},
@@ -3315,11 +3352,11 @@ const ACTS=[
   {id:'clean',  em:'🧹', n:'掃除（掃除機・床ふき）', met:3.3},
   // 歩数から入れたとき（1分に100歩・ふつうの歩き）。選ぶ欄には出さない
   {id:'steps',  em:'👣', n:'歩いた（歩数から）', met:3.0, hide:true},
+  // 「筋トレの記録」で種目と回数から入れたとき。カロリーは記録のときに計算した数字を使う。選ぶ欄には出さない
+  {id:'lift',   em:'🏋️', n:'筋トレ（種目と回数から）', met:3.5, hide:true},
 ];
 const ACT_BY=Object.fromEntries(ACTS.map(a=>[a.id,a]));
-const MUSCLE_ACTS=['muscle','muscle2'];
-// 筋トレのコースに合う「運動」の種類（家なら軽め、ジムならしっかり）
-function muscleAct(course){ return course==='home' ? 'muscle' : 'muscle2'; }
+const MUSCLE_ACTS=['muscle','muscle2','lift'];
 // 食べ物のカロリーはだいたい（日本食品標準成分表などの、よくある大きさ）
 const FOODS=[
   {id:'mikan',  em:'🍊', n:'みかん', u:'個', k:45},
@@ -3451,15 +3488,16 @@ $('mvAdd').onclick=()=>{
   $('mvMin').value=''; $('mvSteps').value='';
   checkCards(); renderBodyAll();
 };
-// 動いた記録を1件入れて、お知らせの文を返す（「運動」の入力と、筋トレの「きょうやった」の両方から使う）
-function recordMove(d, act, min, steps, kg){
+// 動いた記録を1件入れて、お知らせの文を返す（「運動」の入力と、「筋トレの記録」の両方から使う）
+// fix＝カロリーを計算ずみのとき {kcal, ref}（筋トレの記録から入れるとき。ref はその記録の番号）
+function recordMove(d, act, min, steps, kg, fix){
   const B=data.body, t=todayYmd(), out=[];
-  const kcal=moveKcal(ACT_BY[act].met, min, kg), before=kcalStats();
+  const kcal=fix ? fix.kcal : moveKcal(ACT_BY[act].met, min, kg), before=kcalStats();
   // 歩数はスマホなどの「その日の合計」なので1日1件。同じ日にもう一度入れたら書きかえる（足すと二重に数えてしまう）
   const old = act==='steps' ? B.moves.find(x=>x.date===d && x.act==='steps') : null;
   if(old) B.moves=B.moves.filter(x=>x!==old);
-  B.moves.push({date:d, act, min, steps, kcal});
-  // 筋トレをしたら、筋トレの「きょうやった」にも印をつける（2か所で押さなくてすむように）
+  B.moves.push(fix && fix.ref ? {date:d, act, min, steps, kcal, ref:fix.ref} : {date:d, act, min, steps, kcal});
+  // 筋トレをしたら、筋トレをした日の印もつける（2か所で押さなくてすむように）
   const markTrain = MUSCLE_ACTS.includes(act) && !B.trained[d];
   if(markTrain) B.trained[d]=B.course;
   save();
@@ -3467,7 +3505,7 @@ function recordMove(d, act, min, steps, kg){
   if(old){ const dk=kcal-old.kcal;
     out.push(`👣 ${mdTxt(d)}の歩数を ${(old.steps||old.min*100).toLocaleString('ja-JP')}歩 → ${steps.toLocaleString('ja-JP')}歩 に書きかえました（${dk>=0?'＋':'−'}${kcalTxt(Math.abs(dk))}）。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:'')); }
   else out.push(`🔥 ＋${kcalTxt(kcal)}！ ${foodEq(kcal)}ぶんです。`+(d===t?`きょうの合計は ${kcalTxt(kcalOn(t))}。`:''));
-  if(markTrain) out.push(`🏋️ 筋トレの「${d===t?'きょうやった':mdTxt(d)+'にやった'}」にも印をつけました。`);
+  if(markTrain) out.push(`🏋️ 筋トレをした日の印も、${d===t?'きょう':mdTxt(d)}につけました。`);
   if(found.length) out.push('📖 図鑑に新しく見つかりました：'+found.map(f=>f.em+f.n).join('・'));
   const r0=kcalRank(before.total), r1=kcalRank(after.total);
   if(r1>r0) out.push(`🎉 ランクアップ！「${KCAL_RANKS[r1][1]} ${KCAL_RANKS[r1][2]}」になりました。`);
