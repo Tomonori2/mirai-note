@@ -243,3 +243,72 @@ test('ジムのコースなら「しっかり」で記録する。体重が無�
   assert.deepEqual(errors, []);
   await close();
 });
+
+// ---------- 筋トレのカロリー：押す前に目安・強さをえらぶ・ほかの時間・やり直す・合計 ----------
+const trainText = page => page.textContent('#trainDone');
+
+test('筋トレ：時間のボタンに、押す前のカロリーの目安が出る。強さを切りかえると変わる', async () => {
+  const { page, errors, close } = await openApp(user());   // 家のコース・体重62kg
+  await page.click('nav button[data-tab="body"]');
+  await page.click('#trainDone button.hb');
+  assert.match(await trainText(page), /30分約81kcal/);                       // 軽め 2.5×62×0.5×1.05
+  assert.equal(await page.textContent('#trainActSeg button[aria-pressed="true"]'), '軽め');
+  await page.click('#trainActSeg button:has-text("しっかり")');
+  assert.match(await trainText(page), /筋トレ（しっかり・ジムで）/);
+  assert.match(await trainText(page), /30分約163kcal/);                      // しっかり 5×62×0.5×1.05
+  await page.click('#trainDone button:has-text("30分")');
+  const moves = await page.evaluate(() => data.body.moves);
+  assert.deepEqual([moves.length, moves[0].act, moves[0].min, moves[0].kcal], [1, 'muscle2', 30, 163]);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：ほかの時間を入れて記録できる。「やり直す」でカロリーだけ消え、印は残る', async () => {
+  const { page, errors, close } = await openApp(user());
+  await page.click('nav button[data-tab="body"]');
+  await page.click('#trainDone button.hb');
+  await page.fill('#trainMin', '75');
+  await page.click('#trainDone button:has-text("この時間で記録")');
+  assert.match(await trainText(page), /きょうの筋トレ 75分・203kcal/);        // 2.5×62×1.25×1.05
+  await page.click('#trainDone button:has-text("やり直す")');
+  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
+  assert.ok(await page.evaluate(() => !!data.body.trained[todayYmd()]));     // 「きょうやった」の印はそのまま
+  assert.match(await trainText(page), /カロリーも記録しますか/);
+  // 0分や大きすぎる時間は入れられない
+  await page.fill('#trainMin', '0');
+  await page.click('#trainDone button:has-text("この時間で記録")');
+  assert.match(await trainText(page), /時間は 1〜600分 の間で入れてください/);
+  assert.equal(await page.evaluate(() => data.body.moves.length), 0);
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：使ったカロリーの合計（今週・これまで）が出る。筋トレ以外の運動は数えない', async () => {
+  // きょうは 2026-10-02（金）。今週は 9/28（月）から
+  const moves = [
+    { date: '2026-09-25', act: 'muscle2', min: 60, steps: '', kcal: 300 },
+    { date: '2026-09-29', act: 'muscle', min: 30, steps: '', kcal: 81 },
+    { date: '2026-10-01', act: 'walk', min: 30, steps: '', kcal: 65 },
+  ];
+  const a = await openApp(user({ moves }));
+  await a.page.click('nav button[data-tab="body"]');
+  assert.equal(await a.page.textContent('#trainKcalSum'), '🔥 筋トレで使ったカロリー：今週 81kcal（30分）・これまで 381kcal（2日）');
+  await a.close();
+  // 筋トレの記録が無ければ出さない
+  const b = await openApp(user({ moves: [moves[2]] }));
+  await b.page.click('nav button[data-tab="body"]');
+  assert.equal(await b.page.isVisible('#trainKcalSum'), false);
+  assert.deepEqual([...a.errors, ...b.errors], []);
+  await b.close();
+});
+
+test('筋トレ：体重が無いときは目安を出さず、体重を入れる案内を出す', async () => {
+  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2 });
+  await page.click('nav button[data-tab="body"]');
+  await page.click('#trainDone button.hb');
+  const box = await trainText(page);
+  assert.doesNotMatch(box, /30分約/);
+  assert.match(box, /体重を入れると、押す前にカロリーの目安が出ます/);
+  assert.deepEqual(errors, []);
+  await close();
+});

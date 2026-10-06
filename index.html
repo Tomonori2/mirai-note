@@ -811,7 +811,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v6.0';
+const VERSION = 'v6.1';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -2686,28 +2686,66 @@ function renderCourse(){
   const hint=document.createElement('div'); hint.className='sub'; hint.textContent='押し忘れた日は、上の日付を押すと記録できます（もう一度押すと取り消し）。'; box2.append(hint);
   const total=Object.keys(B.trained).length;
   if(total){ const s=document.createElement('div'); s.className='sub'; s.textContent=`これまでに ${total}回。`+(weekTrained()>=2?'今週はもう十分です。休むのも大事なメニューです。':''); box2.append(s); }
+  const ks=trainKcalSummary(); if(ks) box2.append(ks);
 }
 // 「きょうやった」を押した日に、何分やったかを1タップで「運動」にも記録する
 let trainKcalMsg=[];
+let trainActSel='';   // この画面でえらんだ強さ（空なら、コースに合わせる：家なら軽め・ジムならしっかり）
 function trainKcalBox(){
-  const B=data.body, t=todayYmd(), box=kel('div','note'), act=muscleAct(B.course), a=ACT_BY[act];
+  const B=data.body, t=todayYmd(), box=kel('div','note'), W=bodyWt();
+  const act=MUSCLE_ACTS.includes(trainActSel) ? trainActSel : muscleAct(B.course), a=ACT_BY[act];
   const done=B.moves.filter(x=>x.date===t && MUSCLE_ACTS.includes(x.act));
   for(const m of trainKcalMsg) box.append(kel('div',null,m));
   trainKcalMsg=[];
   if(done.length){
     const k=done.reduce((s,x)=>s+x.kcal,0), mn=done.reduce((s,x)=>s+x.min,0);
     box.append(kel('div',null,`🔥 きょうの筋トレ ${mn}分・${kcalTxt(k)}（${foodEq(k)}ぶん）を「運動」に記録しています。`));
+    // 押しまちがえたとき：きょうの筋トレのカロリーだけを消して、えらび直せるようにする（「きょうやった」の印は残す）
+    const redo=kel('button','ghost small','時間や強さをやり直す'); redo.style.marginTop='6px';
+    redo.onclick=()=>{ B.moves=B.moves.filter(x=>!(x.date===t && MUSCLE_ACTS.includes(x.act))); save(); trainKcalMsg=['きょうの筋トレのカロリーを消しました。もう一度えらんでください。']; renderBodyAll(); };
+    box.append(redo);
     return box;
   }
   box.append(kel('div',null,`🔥 カロリーも記録しますか？ 何分やったかを押すと「運動」に入ります（${a.em}${a.n}）。`));
+  // 強さ：同じ時間でも、休みの長さで使うカロリーは変わる
+  const seg=kel('div','seg'); seg.id='trainActSeg'; seg.style.marginTop='8px';
+  for(const [id,label] of [['muscle','軽め'],['muscle2','しっかり']]){
+    const b=kel('button',null,label); b.setAttribute('aria-pressed', id===act?'true':'false'); b.style.padding='8px 6px';
+    b.onclick=()=>{ trainActSel=id; renderCourse(); }; seg.append(b);
+  }
+  box.append(seg);
+  box.append(kel('div','sub', act==='muscle'
+    ? '軽め：家での自重や軽いダンベル。ジムでも、重い重量を少ない回数で上げて、休みを長くとる日はこちらが近いです。'
+    : 'しっかり：休みが短く、息が上がるくらい続けて動く日。休みが長い日（2分以上）は「軽め」のほうが近くなります。'));
+  const rec=m=>{ const W2=bodyWt();
+    if(!W2){ trainKcalMsg=['先に体重を入れてください。「運動」の画面で入れられます。']; renderCourse(); return; }
+    trainKcalMsg=recordMove(t, act, m, '', W2.kg).filter(x=>!x.startsWith('🏋️'));
+    checkCards(); renderBodyAll(); };
+  // 何分やったか。体重が分かっていれば、押す前にカロリーの目安を見せる
   const row=kel('div','add');
-  for(const m of [15,30,45,60]){ const b=kel('button','ghost small',m+'分');
-    b.onclick=()=>{ const W=bodyWt();
-      if(!W){ trainKcalMsg=['先に体重を入れてください。「運動」の画面で入れられます。']; renderCourse(); return; }
-      trainKcalMsg=recordMove(t, act, m, '', W.kg).filter(x=>!x.startsWith('🏋️'));
-      checkCards(); renderBodyAll(); };
-    row.append(b); }
+  for(const m of [15,30,45,60,90]){ const b=kel('button','ghost small',m+'分'); b.style.lineHeight='1.3';
+    if(W){ const k=kel('span',null,'約'+kcalTxt(moveKcal(a.met,m,W.kg))); k.style.cssText='display:block;font-size:12px;font-weight:600'; b.append(k); }
+    b.onclick=()=>rec(m); row.append(b); }
   box.append(row);
+  // ほかの時間
+  const u=kel('div','add'), ui=kel('div','unit'), inp=kel('input'), ok=kel('button','ghost small','この時間で記録');
+  ui.style.cssText='flex:1 1 120px'; inp.type='number'; inp.inputMode='numeric'; inp.id='trainMin'; inp.placeholder='ほかの時間'; inp.setAttribute('aria-label','筋トレをした時間（分）');
+  ui.append(inp, kel('span',null,'分'));
+  ok.onclick=()=>{ const m=Math.round(Number(inp.value));
+    if(!(m>=1 && m<=600)){ trainKcalMsg=['時間は 1〜600分 の間で入れてください。']; renderCourse(); return; }
+    rec(m); };
+  u.append(ui, ok); box.append(u);
+  if(!W) box.append(kel('div','sub','体重を入れると、押す前にカロリーの目安が出ます（「運動」の画面で入れられます）。'));
+  box.append(kel('div','sub','休みの時間もふくめた、筋トレ全体の時間で入れてください。'));
+  return box;
+}
+// 筋トレで使ったカロリーのまとめ（今週・これまで）。「運動」に筋トレの記録があるときだけ出す
+function trainKcalSummary(){
+  const ms=data.body.moves.filter(x=>MUSCLE_ACTS.includes(x.act));
+  if(!ms.length) return null;
+  const mon=weekMon(todayYmd()), wk=ms.filter(x=>x.date>=mon), sum=(L,k)=>L.reduce((s,x)=>s+x[k],0);
+  const box=kel('div','sub'); box.id='trainKcalSum'; box.style.cssText='margin-top:8px;font-weight:600;color:var(--main)';
+  box.textContent=`🔥 筋トレで使ったカロリー：今週 ${kcalTxt(sum(wk,'kcal'))}（${sum(wk,'min')}分）・これまで ${kcalTxt(sum(ms,'kcal'))}（${new Set(ms.map(x=>x.date)).size}日）`;
   return box;
 }
 function toggleTrained(d){
@@ -3264,8 +3302,8 @@ const ACTS=[
   {id:'bike',   em:'🚲', n:'自転車（ふつうの速さ）', met:4.0},
   {id:'stairs', em:'⬆️', n:'階段をのぼる', met:4.0},
   {id:'radio',  em:'🙆', n:'ラジオ体操', met:4.0},
-  {id:'muscle', em:'🏋️', n:'筋トレ（軽め・家で）', met:3.5},
-  {id:'muscle2',em:'💪', n:'筋トレ（しっかり・ジムで）', met:6.0},
+  {id:'muscle', em:'🏋️', n:'筋トレ（軽め・家で）', met:3.5, note:'家での自重や軽いダンベル。ジムでも、重い重量を少ない回数で上げて休みを長くとる日は、こちらが近いです。休みもふくめた全体の時間で入れてください。'},
+  {id:'muscle2',em:'💪', n:'筋トレ（しっかり・ジムで）', met:6.0, note:'休みが短く、息が上がるくらい続けて動く日。休みが長い日（2分以上）は「軽め」のほうが近くなります。休みもふくめた全体の時間で入れてください。'},
   {id:'yoga',   em:'🧘', n:'ヨガ・ストレッチ', met:2.5},
   {id:'swim',   em:'🏊', n:'水泳（ゆっくり）', met:6.0},
   {id:'aqua',   em:'🌊', n:'水中ウォーキング', met:4.5},
