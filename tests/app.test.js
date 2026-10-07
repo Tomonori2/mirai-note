@@ -32,7 +32,8 @@ test('前から使っている人には「新しくなりました」が出て�
   // 前のお知らせ（2＝運動）まで見た人にも、新しいお知らせ（3）は出る
   const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2 });
   assert.ok(await page.isVisible('#newsCard'));
-  assert.match(await page.textContent('#newsCard'), /筋トレの記録.*きょうの英語/);
+  // お知らせは箇条書きで、行と行のあいだに改行が入る。「.」は改行をまたがないので [\s\S] で探す
+  assert.match(await page.textContent('#newsCard'), /筋トレの記録[\s\S]*きょうの英語/);
   await page.click('#newsGo');
   assert.ok(await page.isVisible('[data-bp="menu"]'));
   assert.equal(await page.isVisible('#newsCard'), false);
