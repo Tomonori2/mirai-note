@@ -828,7 +828,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v6.4';
+const VERSION = 'v6.5';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -3707,6 +3707,8 @@ function renderKcal(){
     const g=kel('details'); g.className='kcalGroup'; g.dataset.day=x.date; g.open=kcalOpenDays.has(x.date);
     g.addEventListener('toggle',()=>{ if(g.open) kcalOpenDays.add(x.date); else kcalOpenDays.delete(x.date); });
     const s=kel('summary','row w'); s.style.cssText='cursor:pointer;list-style-position:inside';
+    // 開け閉めは、押した瞬間に覚える（toggle の知らせは少し遅れて届くため）
+    s.addEventListener('click',()=>{ if(!g.open) kcalOpenDays.add(x.date); else kcalOpenDays.delete(x.date); });
     const sets=x.list.reduce((n,m)=>{ const lf=m.ref?B.lifts.find(l=>l.id===m.ref):null; return n+(lf?(lf.sets||1):0); },0);
     const lab=kel('span',null,`${mdTxt(x.date)}　🏋️ 筋トレ ${x.list.length}種目`+(sets?`・${sets}セット`:'')+'　▾'); lab.style.cssText='flex:1;min-width:0;white-space:normal';
     const kc=kel('b',null,kcalTxt(x.list.reduce((n,m)=>n+m.kcal,0))); kc.style.cssText='flex:none;white-space:nowrap';
@@ -3995,6 +3997,8 @@ function renderEng(){
     more=kel('details'); more.id='engMore'; more.style.marginTop='8px'; more.open=engMoreOpen;
     more.addEventListener('toggle',()=>{ engMoreOpen=more.open; });
     const ms=kel('summary','sub','そのほか（聞く・場面・コレクション）'); ms.style.cssText='cursor:pointer;font-weight:700'; more.append(ms);
+    // 開け閉めは、押した瞬間に覚える（toggle の知らせは少し遅れて届くので、開いた直後に場面を変えると閉じてしまっていた）
+    ms.addEventListener('click',()=>{ engMoreOpen=!more.open; });
     if(p.n) more.append(kel('div','sub','💡 '+p.n));
     box.append(more);
   }
