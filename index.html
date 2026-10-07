@@ -210,15 +210,15 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   </div>
   <div class="card" id="newsCard" hidden>
     <h2>✨ 新しくなりました</h2>
-    <div><b>💪からだ</b>タブに「<b>運動</b>」ができました。動いたぶんのカロリーが、食べ物でどれくらいか分かります。</div>
+    <div><b>💪からだ</b>の「<b>筋トレ</b>」を作り直しました。種目と回数から、使ったカロリーの目安が出ます。</div>
     <ul style="margin:8px 0;padding-left:20px">
-      <li><b>🔥動いたカロリー</b>：散歩・筋トレ・ラジオ体操など、したことと時間（または歩数）を入れるだけ</li>
-      <li><b>🍙食べられるもの</b>：「おにぎり 1.2個ぶん」のように、14の食べ物に置きかえて見せます</li>
-      <li><b>📅週のカロリー</b>：今週の合計・先週とのちがい・8週の棒グラフ。週の目標も決められます</li>
-      <li><b>🎮ゲームの要素</b>：カロリー貯金と交換、ランク、ごちそう図鑑、ごほうびカード3枚</li>
+      <li><b>🏋️筋トレの記録</b>：種目・重さ・回数・セット数を入れるだけ。「前回と同じ」を1タップで入れられます（前のメニューの一覧は無くしました）</li>
+      <li><b>🇬🇧きょうの英語</b>：毎日ちがう文が出ます。クリアしたら「もう1文」、集めた文は「おさらいクイズ」、場面（空港・ホテルなど）も選べます</li>
+      <li><b>🔥運動</b>：筋トレで使ったカロリーも、動いたカロリーの合計と貯金に入ります</li>
+      <li><b>🏠ホームがすっきり</b>：その日に済んだもの（ならし運転・ひとこと・英語）は、小さくたたみます</li>
     </ul>
     <div class="sub">これまでの数字や記録は、そのまま残っています。</div>
-    <div class="add"><button class="small" id="newsGo">運動を見る</button><button class="ghost small" id="newsClose">閉じる</button></div>
+    <div class="add"><button class="small" id="newsGo">筋トレの記録を見る</button><button class="ghost small" id="newsClose">閉じる</button></div>
   </div>
   <div class="card" id="cdCard">
     <h2 id="cdTitle">退職の日まで</h2>
@@ -252,12 +252,16 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
   </div>
   <div class="card" id="diaryCard">
     <h2>きょうのひとこと</h2>
-    <div class="mood" id="moodPick"></div>
-    <div class="add">
-      <input type="text" id="diaryText" maxlength="200" placeholder="例：朝の散歩が気持ちよかった" style="flex:1 1 200px">
-      <button id="diarySave">保存</button>
+    <!-- 書いたあとは1行にたたむ（ホームを短くするため）。「書き直す」で入力欄がもどる -->
+    <div id="diaryDone" hidden></div>
+    <div id="diaryForm">
+      <div class="mood" id="moodPick"></div>
+      <div class="add">
+        <input type="text" id="diaryText" maxlength="200" placeholder="例：朝の散歩が気持ちよかった" style="flex:1 1 200px">
+        <button id="diarySave">保存</button>
+      </div>
+      <div class="sub" id="diaryMsg"></div>
     </div>
-    <div class="sub" id="diaryMsg"></div>
   </div>
   <div class="card" id="newCard" hidden></div>
   <div class="card" id="homeBody" hidden></div>
@@ -538,6 +542,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
       <input type="text" id="liftName" list="liftNames" maxlength="30" placeholder="種目の名前" aria-label="種目の名前（例：サイドレイズ）" style="margin-top:8px" hidden>
       <datalist id="liftNames"></datalist>
       <div class="sub" id="liftPrev" style="color:var(--main);font-weight:600"></div>
+      <button class="ghost small" id="liftSame" style="margin-top:6px" hidden>↑ 前回と同じ内容を入れる</button>
       <div class="add">
         <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="decimal" id="liftKg" placeholder="重さ"><span>kg</span></div>
         <div class="unit" style="flex:1 1 40%"><input type="number" inputmode="numeric" id="liftReps" placeholder="回数"><span id="liftRepsUnit">回</span></div>
@@ -823,7 +828,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v6.3';
+const VERSION = 'v6.4';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -886,7 +891,7 @@ function blank(){
     lastBackup: '' };
 }
 // 「新しくなりました」の番号。お知らせの中身を変えたら1つ増やす（前から使っている人に1回だけ出る）
-const NEWS_ID = 2;
+const NEWS_ID = 3;   // 1＝からだタブ／2＝運動／3＝筋トレの記録・きょうの英語・ホームのたたみ
 function blankBody(){
   return { course:'home',
     trained: {},      // 筋トレをした日 {'2026-09-28':'home'}
@@ -1604,6 +1609,7 @@ function toggleTired(d){
   if(data.tired[d]) delete data.tired[d]; else data.tired[d]=true;
   save(); checkCards(); renderHabit(); renderCal(); renderStreak(); renderCards(); renderNewCard();
 }
+let habitOpen=false, habitOpenDay='';   // ぜんぶ済んだあとに「ひらく」を押したか（日が変わったら、たたみ直す）
 function renderHabit(){
   const list=$('habitList'), foot=$('habitFoot'); list.textContent=''; foot.textContent='';
   $('habitIntro').hidden = Object.keys(data.log).length>0;  // 使い方が分かった人には説明を出さない
@@ -1612,8 +1618,21 @@ function renderHabit(){
   tbtn.textContent = tired ? '← ふだんのメニューにもどす' : used ? '😴 おつかれの日にする' : '😴 きょうは おつかれの日（夜勤明け・寝不足など）';
   const items=menuFor(todayYmd());
   if(tired){ const n=document.createElement('div'); n.className='note'; n.textContent='おつかれさまです。きょうは軽いメニューです。ひとつできれば、きょうも「できた日」になります。'; list.append(n); }
-  if(!items.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='「理想の1日」タブに書くと、ここに出ます。'; list.append(p); return; }
+  if(!items.length){ const p=document.createElement('div'); p.className='empty'; p.textContent='「理想の1日」タブに書くと、ここに出ます。'; tbtn.hidden=false; list.append(p); return; }
   const done=todayLog();
+  // きょうの分がぜんぶ済んだら、一覧をたたんで1行にする（ホームを短くするため）。「ひらく」で元にもどせる
+  if(habitOpenDay!==todayYmd()){ habitOpenDay=todayYmd(); habitOpen=false; }
+  const allDone=items.every(it=>done.includes(it.id)), fold=allDone && !habitOpen;
+  tbtn.hidden=fold;
+  if(fold){
+    const row=document.createElement('div'); row.className='note'; row.id='habitDone'; row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
+    const tx=document.createElement('span'); tx.style.fontWeight='700'; tx.textContent=`✓ きょうは ${items.length}件ぜんぶできました 🎉`;
+    const op=document.createElement('button'); op.className='ghost small'; op.textContent='ひらく'; op.setAttribute('aria-label','きょうのならし運転の一覧をひらく');
+    op.onclick=()=>{ habitOpen=true; renderHabit(); };
+    row.append(tx, op); list.append(row);
+    const w=backupNag(); if(w) foot.append(w);
+    return;
+  }
   for(const it of items){
     const on=done.includes(it.id);
     const b=document.createElement('button'); b.className='hb'+(on?' on':''); b.setAttribute('aria-pressed', on?'true':'false');
@@ -1642,11 +1661,13 @@ function backupNag(){
   const B=data.body;
   const n=Object.keys(data.log).length + B.rec.length + B.lifts.length + Object.keys(B.trained).length + Object.keys(data.diary).length;
   if(n<7 || (data.lastBackup && daysBetween(data.lastBackup, todayYmd())<=30)) return null;
-  const w=document.createElement('div'); w.className='note warn'; w.style.marginTop='8px';
-  w.textContent=`🔒 記録が ${n}件 たまりました。スマホの掃除や機種変更で消えると戻せないので、右上の「⚙設定」→「データの控え」で控えを取っておきましょう。`;
-  const b=document.createElement('button'); b.className='ghost small'; b.style.cssText='display:block;margin-top:6px'; b.textContent='控えを取る ›';
+  // 文は短く、ボタンを横に並べる（ホームを長くしないため）。くわしい説明は、設定の「データの控え」にある
+  const w=document.createElement('div'); w.className='note warn'; w.style.cssText='margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+  const tx=document.createElement('span'); tx.style.cssText='flex:1 1 150px;min-width:0';
+  tx.textContent=`🔒 記録が ${n}件。機種変更などで消える前に、控えを取っておきましょう。`;
+  const b=document.createElement('button'); b.className='ghost small'; b.style.flex='none'; b.textContent='控えを取る ›';
   b.onclick=()=>jumpTo('set', $('bkFile'));
-  w.append(b);
+  w.append(tx, b);
   return w;
 }
 
@@ -2520,13 +2541,28 @@ function moodButtons(box, cur, onPick){
     box.append(b);
   }
 }
+let diaryOpen=false, diaryOpenDay='';   // きょうの分を書いたあとに「書き直す」を押したか
 function renderDiary(){
   const t=todayYmd(), cur=data.diary[t];
   // ホーム：きょうのひとこと
   if(document.activeElement!==$('diaryText')) $('diaryText').value = cur ? cur.t : '';
   if(moodDay!==t){ moodDay=t; moodSel = cur ? cur.m : 0; }
-  moodButtons($('moodPick'), moodSel, i=>{ moodSel=i; saveDiary(t, i, $('diaryText').value); });
+  // 気分を押したあとは、続けて文を書けるように開いたままにする（たたむのは「保存」を押したとき）
+  moodButtons($('moodPick'), moodSel, i=>{ moodSel=i; diaryOpen=true; saveDiary(t, i, $('diaryText').value); });
   $('diaryMsg').textContent = cur ? '保存しています ✓（書き直して「保存」を押すと上書きします）' : '気分を押すだけでも記録できます。';
+  // きょうの分を書いたあとは、1行にたたむ。「書き直す」を押すか、入力欄をさわっている間は開いたまま
+  if(diaryOpenDay!==t){ diaryOpenDay=t; diaryOpen=false; }
+  const fold = !!cur && !diaryOpen && document.activeElement!==$('diaryText');
+  $('diaryForm').hidden=fold;
+  const dn=$('diaryDone'); dn.hidden=!fold; dn.textContent='';
+  if(fold){
+    dn.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px';
+    const tx=document.createElement('span'); tx.style.cssText='flex:1;min-width:0;word-break:break-word;font-weight:600';
+    tx.textContent=(cur.m?MOODS[cur.m][0]+' ':'')+(cur.t||'（気分だけ）');
+    const ed=document.createElement('button'); ed.className='ghost small'; ed.textContent='書き直す'; ed.style.flex='none';
+    ed.onclick=()=>{ diaryOpen=true; renderDiary(); $('diaryText').focus(); };
+    dn.append(tx, ed);
+  }
   // 理想の1日タブ：一覧（新しい順に14日ぶん）
   const days=Object.keys(data.diary).sort().reverse();
   const box=$('diaryList'); box.textContent='';
@@ -2555,7 +2591,7 @@ function renderDiary(){
     mb.append(n);
   }
 }
-$('diarySave').onclick=()=>{ saveDiary(todayYmd(), moodSel, $('diaryText').value); $('diaryText').blur(); renderDiary(); };
+$('diarySave').onclick=()=>{ diaryOpen=false; $('diaryText').blur(); saveDiary(todayYmd(), moodSel, $('diaryText').value); renderDiary(); };
 $('diaryText').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('diarySave').click(); } });
 
 // ---------- からだ ----------
@@ -2687,6 +2723,15 @@ function renderCourse(){
       a.style.whiteSpace='normal'; r.append(a,b,del); h.append(r);
     }
     box.append(h);
+  }else{
+    // きょうまだ何も入れていないとき：前回の日と同じ種目を、まとめて入れられる
+    const L=lastLiftDay();
+    if(L){
+      const names=[...new Set(L.list.map(x=>x.name))];
+      const b=kel('button','ghost',`🔁 前回（${mdTxt(L.d)}）と同じ ${L.list.length}件を、きょうの記録に入れる`); b.id='liftRepeat'; b.style.cssText='display:block;width:100%;margin-top:10px;white-space:normal';
+      b.onclick=repeatLastDay;
+      box.append(b, kel('div','sub', names.slice(0,5).join('・')+(names.length>5?' ほか':'')+'。重さ・回数・セット数は前回のままで入ります。'));
+    }
   }
   // この1週間：筋トレした日。押すと印を付けたり外したりできる
   const head=kel('div','sub',`この1週間（今週 ${weekTrained()}回）`); head.style.cssText='margin-top:12px;font-weight:700'; box.append(head);
@@ -2930,6 +2975,13 @@ function renderLiftForm(){
   // 前回の記録
   const lastRec=name ? B.lifts.filter(x=>x.name===name).sort((a,b)=>a.date<b.date?-1:1).at(-1) : null;
   $('liftPrev').textContent = lastRec ? `前回：${jpDate(lastRec.date)}　${liftTxt(lastRec)}`+(best1rm(name)>0?`（自己ベストの目安 ${kgTxt(best1rm(name))}）`:'') : '';
+  // 前回と同じ内容を、入力欄に入れるボタン（そのまま記録しても、少し変えてから記録してもよい）
+  const sb=$('liftSame'); sb.hidden=!lastRec;
+  if(lastRec) sb.onclick=()=>{
+    $('liftKg').value = lastRec.kg>0 ? lastRec.kg : ''; $('liftReps').value=lastRec.reps; $('liftSets').value=lastRec.sets||1;
+    if(lastRec.rest!=null && [0.5,1,2,3,5].includes(lastRec.rest)) $('liftRest').value=String(lastRec.rest);
+    renderLiftForm();
+  };
   // 入れている途中の目安
   const v=liftInput(), est=$('liftEst');
   est.textContent = v.ok && W ? (()=>{ const k=liftKcal(ex, v.kg, v.reps, v.sets, v.rest, W.kg); return `この内容で 約${kcalTxt(k.kcal)}（動かした分 ${k.work}＋休みの分 ${k.rest}・およそ${k.min}分）`; })() : '';
@@ -2950,27 +3002,55 @@ function liftInput(){
 // 種目を変えたら、前の種目の重さは消す（ベンチの100kgが、腕立て伏せの「加重」に残らないように）
 $('liftEx').addEventListener('change',()=>{ $('liftKg').value=''; });
 for(const id of ['liftEx','liftName','liftKg','liftReps','liftSets','liftRest','liftDate']){ $(id).addEventListener('input', renderLiftForm); $(id).addEventListener('change', renderLiftForm); }
+// 筋トレの記録を1つ入れて、お知らせの文を返す（「記録する」と「前回と同じ」の両方から使う）
+// v＝{ex, name, kg, reps, sets, rest, d}、W＝体重(kg)
+function addLift(v, W){
+  const B=data.body, out=[];
+  const k=liftKcal(v.ex, v.kg, v.reps, v.sets, v.rest, W), before=best1rm(v.name);
+  const id=Math.floor(Date.now()*1000+Math.random()*1000);   // この記録の番号（「運動」に入れたカロリーとつなぐ）
+  B.lifts.push({id, date:v.d, name:v.name, ex:v.ex.id, kg:v.kg, reps:v.reps, sets:v.sets, rest:v.rest, kcal:k.kcal});
+  if(B.lifts.length>1000) B.lifts=B.lifts.slice(-1000);
+  // 自己ベスト（重さを入れた種目・12回まで）
+  if(v.kg>0 && v.reps<=12){
+    const now=e1rm(v.kg,v.reps);
+    if(before>0 && now>before+1e-9){ B.pbs++; out.push(`🎉 自己ベスト更新！ ${v.name}の目安が ${kgTxt(before)} → ${kgTxt(now)} になりました。`); }
+    else if(before===0) out.push(`${v.name}の目安は ${kgTxt(now)} です。これが最初の自己ベストです。`);
+  }
+  // カロリーを「運動」にも入れる（筋トレの日の印も、ここで付く）
+  for(const m of recordMove(v.d, 'lift', k.min, '', W, {kcal:k.kcal, ref:id})) if(!m.startsWith('🏋️')) out.push(m);
+  return {out, kcal:k.kcal};
+}
 $('liftAdd').onclick=()=>{
   const B=data.body, v=liftInput(), W=bodyWt(), msg=$('liftMsg'); msg.textContent='';
   const say=(text,warn)=>msg.append(kel('div','note'+(warn?' warn':''),text));
   if(!v.ok){ say(v.err, true); return; }
   if(!W){ say('先に体重を入れてください（カロリーの目安に使います）。', true); $('liftWtIn')?.focus(); return; }
-  const k=liftKcal(v.ex, v.kg, v.reps, v.sets, v.rest, W.kg), before=best1rm(v.name);
-  const id=Math.floor(Date.now()*1000+Math.random()*1000);   // この記録の番号（「運動」に入れたカロリーとつなぐ）
-  B.lifts.push({id, date:v.d, name:v.name, ex:v.ex.id, kg:v.kg, reps:v.reps, sets:v.sets, rest:v.rest, kcal:k.kcal});
-  if(B.lifts.length>1000) B.lifts=B.lifts.slice(-1000);
+  for(const m of addLift(v, W.kg).out) say(m);
   B.liftRest=v.rest;
-  // 自己ベスト（重さを入れた種目・12回まで）
-  if(v.kg>0 && v.reps<=12){
-    const now=e1rm(v.kg,v.reps);
-    if(before>0 && now>before+1e-9){ B.pbs++; say(`🎉 自己ベスト更新！ ${v.name}の目安が ${kgTxt(before)} → ${kgTxt(now)} になりました。`); }
-    else if(before===0) say(`${v.name}の目安は ${kgTxt(now)} です。これが最初の自己ベストです。`);
-  }
-  // カロリーを「運動」にも入れる（筋トレの日の印も、ここで付く）
-  for(const m of recordMove(v.d, 'lift', k.min, '', W.kg, {kcal:k.kcal, ref:id})) if(!m.startsWith('🏋️')) say(m);
   liftShow=v.name; $('liftReps').value=''; $('liftSets').value='';
   checkCards(); renderBodyAll();
 };
+// いちばん最近、種目を記録した日（きょうより前）と、その日の記録
+function lastLiftDay(){
+  const t=todayYmd(), days=[...new Set(data.body.lifts.filter(x=>x.date<t).map(x=>x.date))].sort();
+  const d=days.at(-1);
+  return d ? {d, list:data.body.lifts.filter(x=>x.date===d)} : null;
+}
+// 前回の日と同じ種目を、きょうの記録にまとめて入れる（重さ・回数・セット数・休みは前回のまま。カロリーは今の体重で出し直す）
+function repeatLastDay(){
+  const B=data.body, L=lastLiftDay(), W=bodyWt(), msg=$('liftMsg'); msg.textContent='';
+  const say=(text,warn)=>msg.append(kel('div','note'+(warn?' warn':''),text));
+  if(!L) return;
+  if(!W){ say('先に体重を入れてください（カロリーの目安に使います）。', true); $('liftWtIn')?.focus(); return; }
+  let sum=0;
+  for(const x of L.list){
+    const r=addLift({ex:exOf(x), name:x.name, kg:x.kg||0, reps:x.reps, sets:x.sets||1, rest:x.rest??B.liftRest??2, d:todayYmd()}, W.kg);
+    sum+=r.kcal;
+  }
+  say(`🔁 ${mdTxt(L.d)}と同じ ${L.list.length}件を、きょうの記録に入れました（約${kcalTxt(sum)}）。ちがうところは、下の一覧で消して入れ直せます。`);
+  liftShow=L.list.at(-1).name;
+  checkCards(); renderBodyAll();
+}
 
 // 小さな折れ線グラフ（日付 → 値）。refs は目安の横線
 function miniChart(series, refs, fmt){
@@ -3377,6 +3457,7 @@ const FOODS=[
 const FOOD_BY=Object.fromEntries(FOODS.map(f=>[f.id,f]));
 const KCAL_RANKS=[[0,'🌱','はじめの一歩'],[1000,'🚶','おさんぽ名人'],[3000,'🏃','よく動く人'],[7000,'⛰️','山のぼり級'],[15000,'🗻','富士山級'],[30000,'🏆','鉄人']];
 let mvMode='time', kcalView='today', kcalMsg='';
+const kcalOpenDays=new Set();   // 「最近の記録」で、筋トレのまとめをひらいている日
 function kel(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 function mdTxt(d){ const t=parseYmd(d); return (t.getMonth()+1)+'/'+t.getDate(); }
 function kcalTxt(n){ return Math.round(n).toLocaleString('ja-JP')+'kcal'; }
@@ -3591,9 +3672,20 @@ function renderKcal(){
   const sum7=vals.reduce((s,v)=>s+v,0);
   wk.append(kel('div','sub', sum7 ? `7日の合計 ${kcalTxt(sum7)}（${foodEq(sum7)}ぶん）。1日平均 ${kcalTxt(sum7/7)}。` : 'この7日の記録はまだありません。'));
   const lb=$('kcalList'); lb.textContent='';
-  const recent=B.moves.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);
+  // 「最近の記録」に並べるもの。筋トレ（種目と回数から）は、同じ日に2件以上あれば1行にまとめる
+  // （5種目やると5行になり、ほかの運動が一覧から押し出されてしまうため）
+  const sorted=B.moves.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0), items=[], grp={};
+  for(const x of sorted){
+    if(x.act==='lift' && sorted.filter(y=>y.act==='lift' && y.date===x.date).length>=2){
+      if(!grp[x.date]){ grp[x.date]={date:x.date, list:[]}; items.push(grp[x.date]); }
+      grp[x.date].list.push(x); continue;
+    }
+    items.push(x);
+  }
+  const recent=items.slice(0,10);
   if(recent.length){ const h=kel('div',null,'最近の記録'); h.style.cssText='font-weight:700;margin-top:14px'; lb.append(h); }
-  for(const x of recent){
+  // 1件ぶんの行
+  const moveRow=x=>{
     const a=ACT_BY[x.act], r=kel('div','row w');
     // 「筋トレの記録」から入った行は、種目の名前と中身を出す（もとの記録が残っているとき）
     const lf=x.ref ? B.lifts.find(l=>l.id===x.ref) : null;
@@ -3606,7 +3698,22 @@ function renderKcal(){
       B.moves=B.moves.filter(y=>y!==x);
       if(lf) delete lf.kcal;   // 筋トレの記録は残し、カロリーだけ外す（筋トレの画面の合計と食い違わないように）
       save(); renderBodyAll(); } };
-    r.append(del); lb.append(r);
+    r.append(del);
+    return r;
+  };
+  for(const x of recent){
+    if(!x.list){ lb.append(moveRow(x)); continue; }
+    // 筋トレのまとめ：押すと、種目ごとの行がひらく（ひらいた日は、消したあとも開いたままにする）
+    const g=kel('details'); g.className='kcalGroup'; g.dataset.day=x.date; g.open=kcalOpenDays.has(x.date);
+    g.addEventListener('toggle',()=>{ if(g.open) kcalOpenDays.add(x.date); else kcalOpenDays.delete(x.date); });
+    const s=kel('summary','row w'); s.style.cssText='cursor:pointer;list-style-position:inside';
+    const sets=x.list.reduce((n,m)=>{ const lf=m.ref?B.lifts.find(l=>l.id===m.ref):null; return n+(lf?(lf.sets||1):0); },0);
+    const lab=kel('span',null,`${mdTxt(x.date)}　🏋️ 筋トレ ${x.list.length}種目`+(sets?`・${sets}セット`:'')+'　▾'); lab.style.cssText='flex:1;min-width:0;white-space:normal';
+    const kc=kel('b',null,kcalTxt(x.list.reduce((n,m)=>n+m.kcal,0))); kc.style.cssText='flex:none;white-space:nowrap';
+    s.append(lab, kc); g.append(s);
+    const inner=kel('div'); inner.style.cssText='padding-left:12px;border-left:3px solid var(--main-soft);margin:2px 0 6px';
+    for(const m of x.list) inner.append(moveRow(m));
+    g.append(inner); lb.append(g);
   }
 
   renderKcalWeekly(S);
@@ -3828,6 +3935,7 @@ function renderEngGame(box){
   }
   const quit=kel('button','ghost small','やめる（あとでやる）'); quit.style.marginTop='10px'; quit.onclick=()=>{ engGame=null; renderEng(); }; box.append(quit);
 }
+let engMoreOpen=false;   // クリアしたあとの「そのほか」を開いているか（押し直しても閉じないように覚えておく）
 function renderEng(){
   const box=$('homeEng'); box.textContent='';
   box.append(kel('h2',null,'🇬🇧 きょうの英語'));
@@ -3845,11 +3953,15 @@ function renderEng(){
   const top=kel('div','sub',`${ENG_RANKS[S.rank][1]} ${ENG_RANKS[S.rank][2]}　⭐${S.stars}`+(S.streak?`　🔥 ${S.streak}日つづけて`:'')+`　📚 ${S.got}文`); top.style.fontWeight='700'; box.append(top);
   if(engGame && engGame.step<3){ renderEngGame(box); return; }
   box.append(kel('div','sub',why));
-  const e=kel('div',null,en); e.lang='en'; e.style.cssText='font-size:26px;font-weight:800;line-height:1.3;margin-top:4px'; box.append(e);
+  // クリアしたあとは、文を小さくして場所をとらないようにする
+  const e=kel('div',null,en); e.lang='en'; e.style.cssText=`font-size:${done?19:26}px;font-weight:800;line-height:1.3;margin-top:4px`; box.append(e);
   if(engGame && engGame.msg){ box.append(kel('div','note',engGame.msg)); engGame.msg=''; }
-  const jp=kel('details'); jp.style.marginTop='4px'; if(done) jp.open=true;
-  const sm=kel('summary','sub','日本語を見る（先に意味を思い出してから）'); sm.style.cursor='pointer';
-  jp.append(sm, kel('div',null,p.jp)); if(p.n) jp.append(kel('div','sub','💡 '+p.n)); box.append(jp);
+  if(done){ const j=kel('div','sub',p.jp); box.append(j); }
+  else{
+    const jp=kel('details'); jp.style.marginTop='4px';
+    const sm=kel('summary','sub','日本語を見る（先に意味を思い出してから）'); sm.style.cursor='pointer';
+    jp.append(sm, kel('div',null,p.jp)); if(p.n) jp.append(kel('div','sub','💡 '+p.n)); box.append(jp);
+  }
   if(!done){
     const go=kel('button',null,'🎮 この文でチャレンジ（⭐3つ）'); go.style.cssText='display:block;width:100%;margin-top:10px';
     go.onclick=()=>{ startEngGame(p, all, en); renderEng(); }; box.append(go);
@@ -3877,10 +3989,19 @@ function renderEng(){
     };
     box.append(rv);
   }
+  // きょうの文をクリアしたあとは、ここから下を「そのほか」にたたむ（ホームを短くするため）。クリア前は、そのまま並べる
+  let more=box;
+  if(done){
+    more=kel('details'); more.id='engMore'; more.style.marginTop='8px'; more.open=engMoreOpen;
+    more.addEventListener('toggle',()=>{ engMoreOpen=more.open; });
+    const ms=kel('summary','sub','そのほか（聞く・場面・コレクション）'); ms.style.cssText='cursor:pointer;font-weight:700'; more.append(ms);
+    if(p.n) more.append(kel('div','sub','💡 '+p.n));
+    box.append(more);
+  }
   const row=kel('div','add');
   const b1=kel('button','small','🔊 聞く'); b1.onclick=()=>speakEn(en,false);
   const b2=kel('button','ghost small','🐢 ゆっくり'); b2.onclick=()=>speakEn(en,true);
-  row.append(b1,b2,open); box.append(row);
+  row.append(b1,b2,open); more.append(row);
   // 場面をえらぶ（文に場面が付いているときだけ）
   const scenes=EK_SCENES.filter(([id])=>all.some(x=>x.s===id));
   if(scenes.length){
@@ -3896,11 +4017,11 @@ function renderEng(){
       if(!data.eng.days[todayYmd()]){ data.engToday=null; engGame=null; }
       save(); renderEng();
     };
-    wrap.append(lab, sel); box.append(wrap);
+    wrap.append(lab, sel); more.append(wrap);
   }
   // ランクの進み具合
   const N=ENG_RANKS[S.rank+1];
-  if(N) box.append(kel('div','sub',`つぎの「${N[1]} ${N[2]}」まで ⭐あと${N[0]-S.stars}`));
+  if(N) more.append(kel('div','sub',`つぎの「${N[1]} ${N[2]}」まで ⭐あと${N[0]-S.stars}`));
   // コレクション
   const gotIds=Object.entries(data.eng.got).sort((a,b)=>a[1]<b[1]?1:-1);
   if(gotIds.length){
@@ -3911,16 +4032,16 @@ function renderEng(){
       const a=kel('div',null,qe); a.lang='en'; a.style.fontWeight='700'; tx.append(a, kel('div','sub',q.jp));
       const sp=kel('button','ghost small','🔊'); sp.setAttribute('aria-label',qe+' を聞く'); sp.onclick=()=>speakEn(qe,false);
       r.append(tx,sp); col.append(r); }
-    box.append(col);
+    more.append(col);
   }
   // 英会話アプリの進み具合
   const st=ekGet('study',{});
-  if(!st.last){ box.append(kel('div','sub','英会話アプリで練習すると、つづけた日数や覚えた文の数がここに出ます。')); return; }
+  if(!st.last){ more.append(kel('div','sub','英会話アプリで練習すると、つづけた日数や覚えた文の数がここに出ます。')); return; }
   const streak = st.last===t || st.last===addDays(t,-1) ? (st.streak||0) : 0;
   const due=all.filter(x=>prog[x.id] && prog[x.id].due<=t).length, learned=all.filter(x=>prog[x.id] && prog[x.id].lv>=3).length;
   const s=kel('div','sub', '英会話アプリ：'+[st.last===t ? '✓ きょうやりました' : 'きょうはまだ',
     streak ? `🔥 ${streak}日つづけて` : '', due ? `復習 ${due}文` : '', `覚えた ${learned}/${all.length}文`].filter(Boolean).join(' ・ '));
-  s.style.marginTop='8px'; box.append(s);
+  s.style.marginTop='8px'; more.append(s);
 }
 
 // ホームの「からだ」カード（使っている機能だけ出す）
@@ -3939,14 +4060,17 @@ function renderHomeBody(){
   // ホームから1タップで記録（からだタブまで行かなくてすむように）
   const t=todayYmd(), row=document.createElement('div'); row.className='add';
   const q=(label,on,fn)=>{ const b=document.createElement('button'); b.className=on?'small':'ghost small'; b.setAttribute('aria-pressed',on?'true':'false'); b.textContent=label; b.onclick=fn; row.append(b); };
-  q(B.trained[t]?'✓ 筋トレやった':'🏋️ 筋トレやった', !!B.trained[t], ()=>toggleTrained(t));
+  // 筋トレ：記録の画面へ直接行く（きょう入れた種目があれば、その数を出す。印だけ付けたいときは、筋トレの画面の「この1週間」で）
+  const nLift=B.lifts.filter(x=>x.date===t).length;
+  q(nLift ? `✓ 筋トレ ${nLift}件 ›` : B.trained[t] ? '✓ 筋トレ ›' : '🏋️ 筋トレを記録 ›', nLift>0||!!B.trained[t], ()=>{
+    document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('menu'); $('liftEx').scrollIntoView({block:'center'}); });
   if(so){ const st=soberState(t);
     q(st==='no'?'✓ 飲まなかった':'🍵 飲まなかった', st==='no', ()=>setSober(t, st==='no'?'':'no'));
     q(st==='yes'?'✓ 飲んだ':'🍺 飲んだ', st==='yes', ()=>setSober(t, st==='yes'?'':'yes')); }
   q('🔥 動いた ›', false, ()=>{ document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('kcal'); $('mvMin').focus({preventScroll:true}); });
   q('🩺 血圧・体重 ›', false, ()=>{ document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('rec'); $('recSys').scrollIntoView({block:'center'}); $('recSys').focus({preventScroll:true}); });
   box.append(row);
-  if(so){ const m=document.createElement('div'); renderSoberMsg(m); box.append(m); }
+  // お酒の「連続○日目！」のお知らせは、上の行（お酒なし ○日目）と同じ内容なので、ホームでは重ねて出さない（お酒の画面には出る）
 }
 function renderBodyAll(){ const bn=$('bodyNag'); bn.textContent=''; const w=backupNag(); if(w) bn.append(w); renderCourse(); renderLifts(); renderRec(); renderSober(); renderKcal(); renderHomeBody(); renderCards(); renderNewCard(); renderDiary(); }
 $('tiredBtn').onclick=()=>toggleTired(todayYmd());
@@ -3968,7 +4092,7 @@ function renderWelcome(){ $('welcome').hidden = !!data.welcomed || num(data.mone
 // 前から使っている人に、新しくできたことを1回だけ知らせる（ようこそが出ている間は出さない）
 function renderNews(){ $('newsCard').hidden = data.seenNews===NEWS_ID || !$('welcome').hidden; }
 $('newsClose').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); };
-$('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('kcal'); };
+$('newsGo').onclick=()=>{ data.seenNews=NEWS_ID; save(); renderNews(); document.querySelector('nav button[data-tab="body"]').click(); showBodyTab('menu'); };
 
 function fillAll(){ data.livingItems=cleanLivingItems(data.livingItems); data.livingItemsNow=cleanLivingItems(data.livingItemsNow); migrateWork(); fillMoney(); renderWorks(); fillLivingItems(); checkAllInputs(); $('dayText').value=data.day.map(x=>x.text).join('\n'); $('retireDate').value=data.retireDate||''; $('startDate').value=data.startDate||''; }
 function renderAll(){ applyFont(); renderWelcome();updateAiUI(); showKeyState(); renderInstall(); renderCountdown(); renderReview(); renderSetup(); renderProgress(); renderHomeMoney(); renderHabit(); renderStreak(); renderCal(); renderDayStats(); renderMoney(); renderCompare(); renderTodos(); renderBoard(); renderPicks(); checkCards(); renderBodyAll(); renderDiary(); renderEng(); }

@@ -8,7 +8,7 @@ const { startBrowser, stopBrowser, openApp } = require('./helpers');
 before(startBrowser);
 after(stopBrowser);
 
-const user = { welcomed: true, seenNews: 2 };
+const user = { welcomed: true, seenNews: 3 };
 // 英会話アプリの文が読みこまれて、カードに英語が出るまで待つ
 const english = async page => { await page.waitForSelector('#homeEng [lang="en"]'); return page.textContent('#homeEng [lang="en"]'); };
 
@@ -332,13 +332,17 @@ test('場面をえらぶ：その場面の文から出す。クリア前なら�
   // クリアしたあとに場面を変えても、きょうの1文はそのまま。「もう1文」は新しい場面から出る
   await page.click('#homeEng button:has-text("この文でチャレンジ")');
   await playGame(page);
+  // クリアしたあとは、場面の欄は「そのほか」の中にたたまれている
+  assert.equal(await page.isVisible('#engScene'), false);
+  await page.click('#engMore > summary');
   await page.selectOption('#engScene', 'guide');
   assert.equal(await english(page), "I'm Ken.");
+  assert.equal(await page.isVisible('#engScene'), true);          // 場面を変えても、「そのほか」は開いたまま
   await page.click('#homeEng button:has-text("もう1文チャレンジ")');
   assert.equal(await page.evaluate(() => engGame.id), 'p5');
   // 開き直しても、えらんだ場面は残る
   await page.reload(); await english(page);
-  assert.equal(await page.inputValue('#engScene'), 'guide');
+  assert.equal(await page.$eval('#engScene', e => e.value), 'guide');
   assert.deepEqual(errors, []);
   await close();
 });

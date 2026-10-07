@@ -7,7 +7,7 @@ before(startBrowser);
 after(stopBrowser);
 
 // 体重62kgの人が、すでに使っている状態
-const user = (body = {}) => ({ welcomed: true, seenNews: 2, body: { kcalWt: 62, ...body } });
+const user = (body = {}) => ({ welcomed: true, seenNews: 3, body: { kcalWt: 62, ...body } });
 
 test('カロリーの計算式：（メッツ−1）×体重×時間×1.05', async () => {
   const { page, errors, close } = await openApp(user());
@@ -18,7 +18,7 @@ test('カロリーの計算式：（メッツ−1）×体重×時間×1.05', asy
 });
 
 test('体重が無いと記録できず、お知らせが出る', async () => {
-  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 2 });
+  const { page, errors, close } = await openApp({ welcomed: true, seenNews: 3 });
   await openKcal(page);
   await page.fill('#mvMin', '30');
   await page.click('#mvAdd');
@@ -311,7 +311,7 @@ test('筋トレ：前の版の記録（種目の番号・セット数なし）�
 });
 
 test('筋トレ：体重が無いときは、その場で体重を入れられる。入れるまでは記録しない', async () => {
-  const { page, errors, close } = await openLift({ welcomed: true, seenNews: 2 });
+  const { page, errors, close } = await openLift({ welcomed: true, seenNews: 3 });
   assert.match(await page.textContent('#liftWtBox'), /カロリーの目安には体重を使います/);
   await fillLift(page, 'bench', 60, 10, 3, 2);
   assert.equal(await page.textContent('#liftEst'), '');            // 体重が無いので、目安はまだ出ない
@@ -389,6 +389,62 @@ test('運動の「最近の記録」：筋トレは種目の名前と中身で�
   assert.deepEqual(await page.evaluate(() => [data.body.moves.length, data.body.lifts.length, 'kcal' in data.body.lifts[0], kcalOn(todayYmd())]), [0, 1, false, 0]);
   await page.click('#bodyTabs button[data-bt="menu"]');
   assert.match(await page.textContent('#trainToday'), /きょうの筋トレ：1種目・5セットベンチプレス/);   // カロリーの表示は消える
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+// ---------- 前回と同じ・運動の一覧のまとめ ----------
+// 9/30 に、ベンチプレスと腕立て伏せを記録した人
+const lastDay = () => user({
+  lifts: [{ id: 11, date: '2026-09-30', name: 'ベンチプレス', ex: 'bench', kg: 100, reps: 5, sets: 5, rest: 3, kcal: 32 },
+          { id: 12, date: '2026-09-30', name: '腕立て伏せ', ex: 'pushup', kg: 0, reps: 20, sets: 3, rest: 1, kcal: 15 }],
+  moves: [{ date: '2026-09-30', act: 'lift', min: 17, steps: '', kcal: 32, ref: 11 }, { date: '2026-09-30', act: 'lift', min: 7, steps: '', kcal: 15, ref: 12 }],
+  trained: { '2026-09-30': 'home' },
+});
+
+test('筋トレ：「前回と同じ」で、前の日の種目をまとめてきょうの記録に入れられる', async () => {
+  const { page, errors, close } = await openLift(lastDay());
+  assert.match(await page.textContent('#liftRepeat'), /前回（9\/30）と同じ 2件を、きょうの記録に入れる/);
+  await page.click('#liftRepeat');
+  const today = await page.evaluate(() => data.body.lifts.filter(x => x.date === todayYmd()).map(x => [x.name, x.kg, x.reps, x.sets, x.rest, x.kcal]));
+  assert.deepEqual(today, [['ベンチプレス', 100, 5, 5, 3, 32], ['腕立て伏せ', 0, 20, 3, 1, 15]]);
+  assert.match(await page.textContent('#liftMsg'), /9\/30と同じ 2件を、きょうの記録に入れました（約47kcal）/);
+  assert.equal(await page.evaluate(() => kcalOn(todayYmd())), 47);                       // 「運動」の合計にも入る
+  assert.ok(await page.evaluate(() => !!data.body.trained[todayYmd()]));
+  assert.equal(await page.isVisible('#liftRepeat'), false);                              // きょうの記録があれば、もう出さない
+  assert.deepEqual(errors, []);
+  await close();
+});
+
+test('筋トレ：種目をえらぶと、前回と同じ内容を入力欄に入れられる。前回が無い種目には出さない', async () => {
+  const { page, errors, close } = await openLift(lastDay());
+  await page.selectOption('#liftEx', 'squat');
+  assert.equal(await page.isVisible('#liftSame'), false);
+  await page.selectOption('#liftEx', 'bench');
+  await page.click('#liftSame');
+  assert.deepEqual([await page.inputValue('#liftKg'), await page.inputValue('#liftReps'), await page.inputValue('#liftSets'), await page.inputValue('#liftRest')], ['100', '5', '5', '3']);
+  assert.match(await page.textContent('#liftEst'), /この内容で 約32kcal/);
+  // はじめての人には、どちらも出ない
+  const b = await openLift(user());
+  assert.equal(await b.page.isVisible('#liftRepeat'), false);
+  assert.equal(await b.page.isVisible('#liftSame'), false);
+  assert.deepEqual([...errors, ...b.errors], []);
+  await b.close(); await close();
+});
+
+test('運動の「最近の記録」：同じ日の筋トレは1行にまとめ、押すと種目ごとにひらく', async () => {
+  const { page, errors, close } = await openLift(lastDay());
+  page.on('dialog', d => d.accept());
+  await page.click('#bodyTabs button[data-bt="kcal"]');
+  assert.equal(await page.locator('#kcalList details.kcalGroup').count(), 1);
+  assert.match(await page.textContent('#kcalList details.kcalGroup summary'), /9\/30　🏋️ 筋トレ 2種目・8セット.*47kcal/);
+  assert.equal(await page.isVisible('#kcalList details.kcalGroup div.row'), false);     // 押すまで、種目ごとの行は出ない
+  await page.click('#kcalList details.kcalGroup summary');
+  assert.match(await page.textContent('#kcalList details.kcalGroup'), /ベンチプレス 100kg × 5回 × 5セット32kcal.*腕立て伏せ 20回 × 3セット15kcal/);
+  // 1つ消すと残りは1件なので、まとめるのをやめて、ふつうの1行にもどる
+  await page.click('#kcalList details.kcalGroup div.row:has-text("ベンチプレス") button');
+  assert.equal(await page.locator('#kcalList details.kcalGroup').count(), 0);
+  assert.match(await page.textContent('#kcalList'), /9\/30　🏋️ 腕立て伏せ 20回 × 3セット15kcal/);
   assert.deepEqual(errors, []);
   await close();
 });
