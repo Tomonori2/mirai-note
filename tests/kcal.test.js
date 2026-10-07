@@ -375,3 +375,20 @@ test('筋トレ：控えから戻しても記録が残る。形のおかしい�
   assert.deepEqual(errors, []);
   await close();
 });
+
+test('運動の「最近の記録」：筋トレは種目の名前と中身で出る。そこで消すと、筋トレの記録は残り、カロリーだけ外れる', async () => {
+  const { page, errors, close } = await openLift(user());
+  page.on('dialog', d => d.accept());
+  await fillLift(page, 'bench', 100, 5, 5, 3);
+  await page.click('#liftAdd');
+  await page.click('#bodyTabs button[data-bt="kcal"]');
+  assert.match(await page.textContent('#kcalList'), /🏋️ ベンチプレス 100kg × 5回 × 5セット32kcal/);
+  // 名前が長くても、画面の横にはみ出さない（幅390）
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0);
+  await page.click('#kcalList .row:has-text("ベンチプレス") button');
+  assert.deepEqual(await page.evaluate(() => [data.body.moves.length, data.body.lifts.length, 'kcal' in data.body.lifts[0], kcalOn(todayYmd())]), [0, 1, false, 0]);
+  await page.click('#bodyTabs button[data-bt="menu"]');
+  assert.match(await page.textContent('#trainToday'), /きょうの筋トレ：1種目・5セットベンチプレス/);   // カロリーの表示は消える
+  assert.deepEqual(errors, []);
+  await close();
+});

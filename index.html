@@ -823,7 +823,7 @@ nav button{min-width:0;white-space:nowrap;padding-left:0;padding-right:0}
 </nav>
 
 <script>
-const VERSION = 'v6.2';
+const VERSION = 'v6.3';
 const KEY = 'taishoku-note';
 const $ = id => document.getElementById(id);
 
@@ -3435,7 +3435,7 @@ function renderKcalWeekly(S){
   // 週の目標
   const gh=kel('div',null,'🎯 週の目標'); gh.style.cssText='font-weight:700;margin-top:14px'; box.append(gh);
   const seg=kel('div','seg'); seg.style.marginTop='6px';
-  for(const g of [...KCAL_GOALS,'']){ const b=kel('button',null, g?String(g):'なし'); b.style.cssText='min-width:0;padding:12px 2px;font-size:15px'; b.setAttribute('aria-pressed', String(goal===g));
+  for(const g of [...KCAL_GOALS,'']){ const b=kel('button',null, g?String(g):'なし'); b.style.cssText='min-width:0;padding:12px 0;font-size:clamp(11px,3.6vw,15px)'; b.setAttribute('aria-pressed', String(goal===g));   // 狭い画面・大きい文字でも数字が切れないように
     b.onclick=()=>{ B.kcalGoal=g; save(); checkCards(); renderKcal(); renderHomeBody(); renderCards(); renderNewCard(); }; seg.append(b); }
   box.append(seg);
   if(goal){
@@ -3595,9 +3595,17 @@ function renderKcal(){
   if(recent.length){ const h=kel('div',null,'最近の記録'); h.style.cssText='font-weight:700;margin-top:14px'; lb.append(h); }
   for(const x of recent){
     const a=ACT_BY[x.act], r=kel('div','row w');
-    r.append(kel('span',null,`${mdTxt(x.date)}　${a.em} ${a.id==='steps'?(x.steps||x.min*100).toLocaleString('ja-JP')+'歩':a.n+' '+x.min+'分'}`), kel('b',null,kcalTxt(x.kcal)));
-    r.firstChild.style.cssText='flex:1;min-width:0';
-    const del=kel('button','ghost small','けす'); del.onclick=()=>{ if(confirm('この記録をけしますか？')){ B.moves=B.moves.filter(y=>y!==x); save(); renderKcal(); renderHomeBody(); } };
+    // 「筋トレの記録」から入った行は、種目の名前と中身を出す（もとの記録が残っているとき）
+    const lf=x.ref ? B.lifts.find(l=>l.id===x.ref) : null;
+    const what = a.id==='steps' ? (x.steps||x.min*100).toLocaleString('ja-JP')+'歩' : lf ? `${lf.name} ${liftTxt(lf)}` : a.n+' '+x.min+'分';
+    r.append(kel('span',null,`${mdTxt(x.date)}　${a.em} ${what}`), kel('b',null,kcalTxt(x.kcal)));
+    // 名前が長い行は折り返す（折り返さないと、狭いスマホで画面の外にはみ出す）
+    r.firstChild.style.cssText='flex:1;min-width:0;white-space:normal';
+    r.querySelector('b').style.cssText='flex:none;white-space:nowrap';
+    const del=kel('button','ghost small','けす'); del.onclick=()=>{ if(confirm('この記録をけしますか？')){
+      B.moves=B.moves.filter(y=>y!==x);
+      if(lf) delete lf.kcal;   // 筋トレの記録は残し、カロリーだけ外す（筋トレの画面の合計と食い違わないように）
+      save(); renderBodyAll(); } };
     r.append(del); lb.append(r);
   }
 
